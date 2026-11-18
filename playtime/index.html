@@ -3,334 +3,337 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>playtime · drsp1cy</title>
-<meta name="description" content="Put everything where it belongs.">
-<meta name="theme-color" content="#0b0b0d">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b0b0d'/><circle cx='50' cy='50' r='18' fill='none' stroke='%23c2414b' stroke-width='8'/></svg>">
+<title>playtime</title>
+<meta name="theme-color" content="#f3f2ef">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23f3f2ef'/><circle cx='50' cy='50' r='18' fill='none' stroke='%23d8432c' stroke-width='8'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0b0b0d;
-    --surface: #131317;
-    --border: #24242b;
-    --text: #e6e4e1;
-    --muted: #8b8890;
-    --faint: #55535b;
-    --accent: #c2414b;
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
+    background: #f3f2ef;
+    overflow: hidden;
     font-family: 'Inter', system-ui, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
-  body::before {
-    content: "";
-    position: fixed; inset: 0;
-    background: radial-gradient(ellipse 60% 50% at 50% 45%, rgba(255, 220, 170, .05), transparent 70%);
+
+  /* ---------- the void ---------- */
+  .void {
+    position: fixed; inset: -30%;
+    z-index: 0;
     pointer-events: none;
+    filter: blur(60px);
   }
-  a { color: inherit; text-decoration: none; }
-
-  nav {
-    border-bottom: 1px solid var(--border);
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    font-size: 14px;
+  .void span {
+    position: absolute;
+    border-radius: 50%;
+    mix-blend-mode: multiply;
   }
-  .crumb { font-family: 'JetBrains Mono', monospace; color: var(--muted); }
-  .crumb a:hover { color: var(--text); }
-  .crumb b { color: var(--text); font-weight: 400; }
-  .crumb .one { color: var(--accent); }
-
-  .btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font: inherit;
-    font-size: 13px;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
+  .void span:nth-child(1) {
+    width: 70vmax; height: 70vmax; left: 10%; top: 5%;
+    background: radial-gradient(circle, #e9e6e0 0%, transparent 65%);
+    animation: drift1 70s ease-in-out infinite alternate;
   }
-  .btn:hover { color: var(--text); border-color: var(--faint); }
-  .btn:disabled { opacity: .4; cursor: default; }
+  .void span:nth-child(2) {
+    width: 60vmax; height: 60vmax; right: 5%; top: 20%;
+    background: radial-gradient(circle, #e4e7ec 0%, transparent 65%);
+    animation: drift2 90s ease-in-out infinite alternate;
+  }
+  .void span:nth-child(3) {
+    width: 65vmax; height: 65vmax; left: 30%; bottom: 0%;
+    background: radial-gradient(circle, #ece8e4 0%, transparent 65%);
+    animation: drift3 80s ease-in-out infinite alternate;
+  }
+  .void span:nth-child(4) {
+    width: 50vmax; height: 50vmax; left: 40%; top: 30%;
+    background: radial-gradient(circle, #ffffff 0%, transparent 60%);
+    mix-blend-mode: screen;
+    animation: drift1 55s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift1 { to { transform: translate(18vw, 12vh) scale(1.25); } }
+  @keyframes drift2 { to { transform: translate(-22vw, 16vh) scale(.85); } }
+  @keyframes drift3 { to { transform: translate(-10vw, -20vh) scale(1.15); } }
 
+  .grain {
+    position: fixed; inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: .05;
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---------- stage ---------- */
   main {
-    flex: 1;
+    position: relative;
+    z-index: 2;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 16px 48px;
-  }
-  .hint {
-    font-size: 14px;
-    color: var(--faint);
-    font-style: italic;
-    margin-bottom: 8px;
-    text-align: center;
+    justify-content: center;
+    gap: 2vh;
+    padding: 2vh 12px;
   }
 
   #toy {
-    width: 100%;
-    max-width: 920px;
+    width: min(94vw, 980px);
+    max-height: 80vh;
     height: auto;
-    user-select: none;
-    -webkit-user-select: none;
     touch-action: none;
+    overflow: visible;
   }
-  #toy.wrong { animation: shudder .5s ease; }
+  #toy.wrong { animation: shudder .55s cubic-bezier(.36,.07,.19,.97); }
   @keyframes shudder {
-    20% { transform: translateX(-6px); }
-    40% { transform: translateX(6px); }
-    60% { transform: translateX(-3px); }
-    80% { transform: translateX(3px); }
+    15% { transform: translateX(-7px) rotate(-.3deg); }
+    30% { transform: translateX(7px) rotate(.3deg); }
+    45% { transform: translateX(-5px); }
+    60% { transform: translateX(4px); }
+    75% { transform: translateX(-2px); }
   }
 
   .bead, .cube { cursor: grab; }
   .bead.dragging, .cube.dragging { cursor: grabbing; }
-  .sel-ring { display: none; }
-  .selected .sel-ring { display: block; }
+  .sel-ring { opacity: 0; transition: opacity .2s; }
+  .selected .sel-ring { opacity: 1; }
   .cube-face { transform-box: fill-box; transform-origin: center; }
-  .cube-face.spin { animation: spin .26s ease-in-out; }
+  .cube-face.spin { animation: spin .28s ease-in-out; }
   @keyframes spin {
     0% { transform: scaleY(1); }
-    50% { transform: scaleY(.05); }
+    50% { transform: scaleY(.04); }
     100% { transform: scaleY(1); }
   }
-  #tag { pointer-events: none; }
 
-  /* ---------- info bar ---------- */
-  .info {
-    width: 100%;
-    max-width: 920px;
-    margin-top: 12px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    min-height: 64px;
-  }
-  .swatch {
-    width: 36px; height: 36px;
-    flex: none;
-    border-radius: 50%;
-    display: grid; place-items: center;
-    font-weight: 800;
-    font-size: 17px;
-    color: #fff;
-    background: var(--border);
-  }
-  .swatch.square { border-radius: 7px; }
-  .info-text {
-    flex: 1;
-    min-width: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-  }
-  .info-text .k { color: var(--muted); }
-  .info-ctrl { display: flex; gap: 6px; flex: none; }
-  .info-ctrl .btn { padding: 6px 10px; }
+  #tag { transition: opacity .15s; }
+  #tag.hidden { opacity: 0; pointer-events: none; }
+  #tag .arrow { cursor: pointer; }
+  #tag .arrow:hover rect { fill: rgba(0,0,0,.06); }
 
-  .legend {
-    margin-top: 10px;
-    font-size: 12px;
-    color: var(--faint);
-    text-align: center;
-  }
-  #readout {
-    margin-top: 6px;
-    max-width: 920px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--faint);
-    text-align: center;
-    word-break: break-word;
-    line-height: 1.6;
-  }
-
-  /* ---------- check ---------- */
-  .check {
-    margin-top: 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
+  /* ---------- button ---------- */
   #checkBtn {
-    background: var(--accent);
-    color: #fff;
+    position: relative;
+    overflow: hidden;
     border: none;
-    font: inherit;
-    font-weight: 600;
-    font-size: 16px;
-    padding: 14px 32px;
-    border-radius: 10px;
+    border-radius: 999px;
+    padding: 15px 34px;
+    font: 700 16px 'Inter', system-ui, sans-serif;
+    letter-spacing: -.01em;
+    color: #fff;
+    background: linear-gradient(180deg, #2c2a2e, #18171a);
+    box-shadow: 0 1px 0 rgba(255,255,255,.12) inset, 0 10px 30px rgba(20,18,22,.25), 0 2px 6px rgba(20,18,22,.2);
     cursor: pointer;
-    box-shadow: 0 6px 24px rgba(194, 65, 75, .3);
-    transition: transform .15s, box-shadow .15s, opacity .2s;
+    transition: transform .15s, box-shadow .15s, opacity .3s;
   }
-  #checkBtn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(194, 65, 75, .45); }
-  #checkBtn:disabled { opacity: .5; cursor: wait; transform: none; }
-  #checkMsg { font-size: 14px; color: var(--muted); min-height: 1.4em; text-align: center; }
-  #checkMsg.good { color: #7fd1a0; }
+  #checkBtn:hover { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(255,255,255,.12) inset, 0 14px 36px rgba(20,18,22,.3), 0 2px 6px rgba(20,18,22,.2); }
+  #checkBtn:active { transform: translateY(1px); }
+  #checkBtn.busy { animation: breathe 1s ease-in-out infinite; pointer-events: none; }
+  @keyframes breathe { 50% { opacity: .6; } }
+  #checkBtn.no { animation: nope .45s ease; }
+  @keyframes nope {
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(3px); }
+  }
+  /* cooldown: a bar drains across the button */
+  #checkBtn.cool { pointer-events: none; opacity: .55; }
+  #checkBtn .bar {
+    position: absolute; left: 0; bottom: 0;
+    height: 3px; width: 0;
+    background: rgba(255,255,255,.7);
+  }
 
-  /* ---------- solution helper (#solution) ---------- */
+  /* ---------- exit ---------- */
+  #white {
+    position: fixed; inset: 0;
+    z-index: 50;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1.4s ease;
+  }
+  #white.on { opacity: 1; pointer-events: all; }
+
+  /* ---------- author helper: only at #solution ---------- */
   #solution {
     display: none;
-    width: 100%;
-    max-width: 920px;
-    margin-top: 32px;
-    padding: 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 13px;
-    color: var(--muted);
+    position: fixed;
+    right: 12px; bottom: 12px;
+    z-index: 40;
+    width: 300px;
   }
-  #solution h2 { color: var(--text); font-size: 15px; margin-bottom: 6px; }
-  #solution p { margin-bottom: 12px; line-height: 1.5; }
   #solution textarea {
     width: 100%;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    margin-bottom: 10px;
+    height: 220px;
+    font: 11px 'JetBrains Mono', monospace;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: rgba(255,255,255,.9);
+    user-select: text;
+    -webkit-user-select: text;
   }
-  #solution code { color: var(--text); }
 
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 20px 24px;
-    font-size: 12px;
-    color: var(--faint);
-    text-align: center;
+  @media (prefers-reduced-motion: reduce) {
+    .void span { animation: none !important; }
   }
 </style>
 </head>
 <body>
 
-<nav>
-  <span class="crumb"><a href="/">drsp<span class="one">1</span>cy</a> / <b>playtime</b></span>
-  <button class="btn" id="resetBtn">Reset</button>
-</nav>
+<div class="void"><span></span><span></span><span></span><span></span></div>
+<div class="grain"></div>
 
 <main>
-  <p class="hint">Put everything where it belongs.</p>
-
-  <svg id="toy" viewBox="0 0 1000 850" aria-label="Bead maze toy">
+  <svg id="toy" viewBox="0 0 1000 850" aria-label="toy">
     <defs>
-      <linearGradient id="woodSide" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#c79f63"/>
-        <stop offset="1" stop-color="#9c7440"/>
+      <!-- wood -->
+      <linearGradient id="woodV" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#f0cf9c"/>
+        <stop offset=".55" stop-color="#ddb07a"/>
+        <stop offset="1" stop-color="#b98652"/>
+      </linearGradient>
+      <linearGradient id="woodTop" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f7dcb0"/>
+        <stop offset="1" stop-color="#e2b884"/>
       </linearGradient>
       <linearGradient id="rod" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#ead2a8"/>
-        <stop offset="1" stop-color="#b8925c"/>
+        <stop offset="0" stop-color="#fbe9c9"/>
+        <stop offset=".45" stop-color="#e3bf8b"/>
+        <stop offset="1" stop-color="#a97d4b"/>
       </linearGradient>
-      <radialGradient id="shine" cx=".35" cy=".3" r=".7">
-        <stop offset="0" stop-color="#fff" stop-opacity=".45"/>
+      <filter id="grainV" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency=".6 .012" numOctaves="3" seed="7" result="n"/>
+        <feColorMatrix in="n" type="matrix"
+          values="0 0 0 0 .42  0 0 0 0 .25  0 0 0 0 .1  1.2 0 0 0 -.45" result="t"/>
+        <feComposite in="t" in2="SourceGraphic" operator="in" result="g"/>
+        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="g"/></feMerge>
+      </filter>
+      <filter id="grainH" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency=".008 .5" numOctaves="2" seed="3" result="n"/>
+        <feColorMatrix in="n" type="matrix"
+          values="0 0 0 0 .45  0 0 0 0 .28  0 0 0 0 .12  1 0 0 0 -.4" result="t"/>
+        <feComposite in="t" in2="SourceGraphic" operator="in" result="g"/>
+        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="g"/></feMerge>
+      </filter>
+
+      <!-- lacquer -->
+      <radialGradient id="gloss" cx=".32" cy=".28" r=".75">
+        <stop offset="0" stop-color="#fff" stop-opacity=".75"/>
+        <stop offset=".18" stop-color="#fff" stop-opacity=".25"/>
         <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
-        <stop offset="1" stop-color="#000" stop-opacity=".25"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".32"/>
       </radialGradient>
-      <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity=".45"/>
+      <linearGradient id="cubeGloss" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".45"/>
+        <stop offset=".4" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".22"/>
+      </linearGradient>
+
+      <!-- shadows -->
+      <filter id="soft" x="-40%" y="-40%" width="180%" height="200%">
+        <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#3a2a1a" flood-opacity=".28"/>
+      </filter>
+      <filter id="wireShadow" x="-10%" y="-10%" width="120%" height="130%">
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
+      <filter id="floor" x="-20%" y="-200%" width="140%" height="500%">
+        <feGaussianBlur stdDeviation="16"/>
+      </filter>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3"/>
       </filter>
     </defs>
 
-    <ellipse cx="500" cy="822" rx="430" ry="22" fill="#000" opacity=".5"/>
+    <!-- floor shadow -->
+    <ellipse cx="500" cy="828" rx="440" ry="20" fill="#2a2018" opacity=".28" filter="url(#floor)"/>
+    <ellipse cx="500" cy="820" rx="380" ry="8" fill="#2a2018" opacity=".22" filter="url(#glow)"/>
 
+    <!-- wire shadows (fall softly onto the void) -->
+    <g fill="none" stroke="#2a2018" stroke-width="9" opacity=".12" filter="url(#wireShadow)" transform="translate(10,18)">
+      <path d="M120,560 L120,170 C120,60 290,60 290,170 L290,500 C290,590 410,590 410,500 L410,130 C410,30 560,30 560,130 L560,440 C560,530 690,530 690,440 L690,170 C690,60 880,60 880,170 L880,560"/>
+      <path d="M155,560 L155,330 C155,240 230,230 260,320 C300,450 360,470 410,400 C460,330 500,270 560,340 C610,410 660,420 720,340 C760,290 820,280 845,340 L845,560"/>
+    </g>
+
+    <!-- wires: dark core, colour, highlight -->
     <g fill="none" stroke-linecap="round">
-      <path id="wireRed" stroke="#d8432c" stroke-width="8"
+      <path stroke="#8e2416" stroke-width="11"
         d="M120,560 L120,170 C120,60 290,60 290,170 L290,500 C290,590 410,590 410,500 L410,130 C410,30 560,30 560,130 L560,440 C560,530 690,530 690,440 L690,170 C690,60 880,60 880,170 L880,560"/>
-      <path stroke="#ff8a6e" stroke-width="2" opacity=".5" transform="translate(-2,-1)"
+      <path id="wireRed" stroke="#e2482e" stroke-width="8"
         d="M120,560 L120,170 C120,60 290,60 290,170 L290,500 C290,590 410,590 410,500 L410,130 C410,30 560,30 560,130 L560,440 C560,530 690,530 690,440 L690,170 C690,60 880,60 880,170 L880,560"/>
-      <path id="wireTeal" stroke="#1fa39a" stroke-width="8"
+      <path stroke="#ffb3a1" stroke-width="2.2" opacity=".8" transform="translate(-2,-1.5)"
+        d="M120,560 L120,170 C120,60 290,60 290,170 L290,500 C290,590 410,590 410,500 L410,130 C410,30 560,30 560,130 L560,440 C560,530 690,530 690,440 L690,170 C690,60 880,60 880,170 L880,560"/>
+
+      <path stroke="#0d5f58" stroke-width="11"
         d="M155,560 L155,330 C155,240 230,230 260,320 C300,450 360,470 410,400 C460,330 500,270 560,340 C610,410 660,420 720,340 C760,290 820,280 845,340 L845,560"/>
-      <path stroke="#7fe3d8" stroke-width="2" opacity=".5" transform="translate(-2,-1)"
+      <path id="wireTeal" stroke="#1fb0a5" stroke-width="8"
+        d="M155,560 L155,330 C155,240 230,230 260,320 C300,450 360,470 410,400 C460,330 500,270 560,340 C610,410 660,420 720,340 C760,290 820,280 845,340 L845,560"/>
+      <path stroke="#a6f2ea" stroke-width="2.2" opacity=".8" transform="translate(-2,-1.5)"
         d="M155,560 L155,330 C155,240 230,230 260,320 C300,450 360,470 410,400 C460,330 500,270 560,340 C610,410 660,420 720,340 C760,290 820,280 845,340 L845,560"/>
     </g>
     <g id="beadsTeal"></g>
     <g id="beadsRed"></g>
 
-    <rect x="100" y="555" width="75" height="255" rx="5" fill="url(#woodSide)"/>
-    <rect x="825" y="555" width="75" height="255" rx="5" fill="url(#woodSide)"/>
-    <circle cx="120" cy="566" r="6" fill="#222"/>
-    <circle cx="155" cy="566" r="6" fill="#222"/>
-    <circle cx="880" cy="566" r="6" fill="#222"/>
-    <circle cx="845" cy="566" r="6" fill="#222"/>
+    <!-- end blocks -->
+    <g filter="url(#soft)">
+      <g filter="url(#grainV)">
+        <rect x="98" y="552" width="80" height="262" rx="7" fill="url(#woodV)"/>
+        <rect x="822" y="552" width="80" height="262" rx="7" fill="url(#woodV)"/>
+      </g>
+      <rect x="98" y="552" width="80" height="14" rx="7" fill="url(#woodTop)" opacity=".9"/>
+      <rect x="822" y="552" width="80" height="14" rx="7" fill="url(#woodTop)" opacity=".9"/>
+    </g>
+    <g fill="#3b2a1c">
+      <circle cx="120" cy="568" r="6"/><circle cx="155" cy="568" r="6"/>
+      <circle cx="880" cy="568" r="6"/><circle cx="845" cy="568" r="6"/>
+    </g>
 
     <g id="rods"></g>
     <g id="cubes"></g>
 
-    <g id="tag" visibility="hidden">
-      <rect x="-34" y="-62" width="68" height="26" rx="6" fill="#0b0b0d" stroke="#3a3a44"/>
-      <text x="0" y="-44" text-anchor="middle" font-size="15" fill="#e6e4e1"
-        font-family="JetBrains Mono, monospace"></text>
+    <!-- floating readout + fine-tune -->
+    <g id="tag" class="hidden">
+      <g filter="url(#soft)">
+        <rect x="-62" y="-20" width="124" height="40" rx="20" fill="#fff" opacity=".96"/>
+      </g>
+      <g class="arrow" id="tagPrev">
+        <rect x="-60" y="-18" width="36" height="36" rx="18" fill="transparent"/>
+        <path d="M-38,-6 L-46,0 L-38,6" fill="none" stroke="#6a6670" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <text id="tagText" x="0" y="6" text-anchor="middle" font-size="17" fill="#1d1c20"
+        font-family="JetBrains Mono, monospace" font-weight="500"></text>
+      <g class="arrow" id="tagNext">
+        <rect x="24" y="-18" width="36" height="36" rx="18" fill="transparent"/>
+        <path d="M38,-6 L46,0 L38,6" fill="none" stroke="#6a6670" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
     </g>
   </svg>
 
-  <div class="info">
-    <div class="swatch" id="infoSwatch"></div>
-    <div class="info-text" id="infoText"><span class="k">select a piece</span></div>
-    <div class="info-ctrl">
-      <button class="btn" id="prevBtn" title="−1 (←)" hidden>‹</button>
-      <button class="btn" id="nextBtn" title="+1 (→)" hidden>›</button>
-      <button class="btn" id="turnBtn" title="Turn (R)" hidden>Turn</button>
-    </div>
-  </div>
-
-  <p class="legend">Drag beads along the wires · drag cubes along their rods · tap a cube to turn it · arrow keys fine-tune the selected piece</p>
-  <p id="readout"></p>
-
-  <div class="check">
-    <button id="checkBtn">Check my work!</button>
-    <div id="checkMsg"></div>
-  </div>
-
-  <section id="solution">
-    <h2>Solution helper</h2>
-    <p>Arrange the toy, then copy this into the Worker's <code>SOLUTION</code> secret.
-       Delete any part that shouldn't count.</p>
-    <textarea id="solOut" rows="10" readonly></textarea>
-    <button class="btn" id="solCopy">Copy</button>
-  </section>
+  <button id="checkBtn">Check my work!<span class="bar"></span></button>
 </main>
 
-<footer>drsp1cy · playtime</footer>
+<div id="white"></div>
+
+<div id="solution"><textarea id="solOut" readonly></textarea></div>
 
 <script>
 /* ================================================================= */
 const API = "https://door.drsp1cy.com";
 
-/* wires: number of stops and number shown for stop 0 */
 const WIRES = {
-  teal: { stops: 365, shownFrom: 1, code: "T" },
-  red:  { stops: 127, shownFrom: 0, code: "R" }
+  teal: { stops: 365, shownFrom: 1 },
+  red:  { stops: 127, shownFrom: 0 }
 };
 
 const BEADS = {
   teal: [
     { c: "#8a5cc7" },
-    { c: "#f4f4f4", g: "◕", dark: true },
+    { c: "#f6f4f1", g: "◕", dark: true },
     { c: "#2aa3c9" },
-    { c: "#f2cf2c", g: "✦", dark: true },
+    { c: "#f5cf2a", g: "✦", dark: true },
     { c: "#9bd13c" },
     { c: "#5b6b8c", g: "☾" },
     { c: "#d8352c" }
@@ -341,19 +344,18 @@ const BEADS = {
     { c: "#8c2b25" },
     { c: "#4fb548", g: "◉" },
     { c: "#f5a3c7", g: "✿", dark: true },
-    { c: "#f2cf2c" },
+    { c: "#f5cf2a" },
     { c: "#2a6fd6" }
   ]
 };
 
-/* cubes: one per rod, top to bottom. Same color = a pair. */
 const CUBES = [
-  { stops: 91,  shownFrom: 0, c: "#e2445c" },
-  { stops: 181, shownFrom: 0, c: "#e2445c" },
-  { stops: 91,  shownFrom: 0, c: "#2c8fd6" },
-  { stops: 181, shownFrom: 0, c: "#2c8fd6" }
+  { stops: 91,  shownFrom: 0, c: "#e2445c", side: "#9e2236" },
+  { stops: 181, shownFrom: 0, c: "#e2445c", side: "#9e2236" },
+  { stops: 91,  shownFrom: 0, c: "#2c8fd6", side: "#1a5a8c" },
+  { stops: 181, shownFrom: 0, c: "#2c8fd6", side: "#1a5a8c" }
 ];
-const FACES = ["▲", "▶", "▼", "◀"];   // same four on every cube, same order
+const FACES = ["▲", "▶", "▼", "◀"];
 
 /* ================================================================= */
 const START = () => ({
@@ -377,7 +379,7 @@ function load() {
 }
 function save() {
   try { localStorage.setItem("playtime-v4", JSON.stringify(state)); } catch (e) {}
-  updateReadout();
+  if (location.hash === "#solution") document.getElementById("solOut").value = JSON.stringify(state, null, 2);
 }
 
 /* ================================================================= */
@@ -399,9 +401,6 @@ WIRES.red.points  = stopPoints(document.getElementById("wireRed"),  WIRES.red.st
 WIRES.teal.layer = document.getElementById("beadsTeal");
 WIRES.red.layer  = document.getElementById("beadsRed");
 
-const shownWire = (wire, v) => v + WIRES[wire].shownFrom;
-const shownCube = (i, v) => v + CUBES[i].shownFrom;
-
 function svgPoint(e) {
   const p = svg.createSVGPoint();
   p.x = e.clientX; p.y = e.clientY;
@@ -409,21 +408,19 @@ function svgPoint(e) {
 }
 
 /* rods */
-const CUBE = 40;
-const ROD_X0 = 175, ROD_W = 650;
-const TRACK = ROD_W - CUBE;          // distance a cube's left edge can travel
-const ROD_Y = [625, 677, 729, 781];  // rod centre lines, top to bottom
+const CUBE = 42;
+const ROD_X0 = 178, ROD_W = 644;
+const TRACK = ROD_W - CUBE;
+const ROD_Y = [626, 678, 730, 782];
 
 const rodLayer = document.getElementById("rods");
 ROD_Y.forEach(y => {
-  const r = document.createElementNS(NS, "rect");
-  r.setAttribute("x", ROD_X0);
-  r.setAttribute("y", y - 6);
-  r.setAttribute("width", ROD_W);
-  r.setAttribute("height", 12);
-  r.setAttribute("rx", 6);
-  r.setAttribute("fill", "url(#rod)");
-  rodLayer.appendChild(r);
+  const g = document.createElementNS(NS, "g");
+  g.innerHTML = `
+    <rect x="${ROD_X0}" y="${y + 4}" width="${ROD_W}" height="10" rx="5" fill="#2a2018" opacity=".14" filter="url(#glow)"/>
+    <rect x="${ROD_X0}" y="${y - 6}" width="${ROD_W}" height="12" rx="6" fill="url(#rod)" filter="url(#grainH)"/>
+    <rect x="${ROD_X0}" y="${y - 4}" width="${ROD_W}" height="2" rx="1" fill="#fff" opacity=".55"/>`;
+  rodLayer.appendChild(g);
 });
 
 const cubeX = (i, v) => ROD_X0 + TRACK * v / (CUBES[i].stops - 1);
@@ -436,14 +433,21 @@ function buildBeads(wire) {
   BEADS[wire].forEach((b, i) => {
     const g = document.createElementNS(NS, "g");
     g.setAttribute("class", "bead");
+    const ink = b.dark ? "#2a2a33" : "#fff";
     const body = b.g
-      ? `<rect x="-23" y="-20" width="46" height="40" rx="13" fill="${b.c}"/>
-         <rect x="-23" y="-20" width="46" height="40" rx="13" fill="url(#shine)"/>
-         <text x="0" y="8" text-anchor="middle" font-size="22" font-weight="800"
-           fill="${b.dark ? '#2a2a33' : '#fff'}" font-family="Inter, sans-serif">${b.g}</text>`
-      : `<circle r="21" fill="${b.c}"/><circle r="21" fill="url(#shine)"/>`;
-    g.innerHTML = `<circle class="sel-ring" r="29" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
-                   <g filter="url(#shadow)">${body}</g>`;
+      ? `<rect x="-24" y="-21" width="48" height="42" rx="14" fill="${b.c}"/>
+         <rect x="-24" y="-21" width="48" height="42" rx="14" fill="url(#gloss)"/>
+         <rect x="-24" y="-21" width="48" height="42" rx="14" fill="none" stroke="#000" stroke-opacity=".12"/>
+         <text x="0" y="8" text-anchor="middle" font-size="22" font-weight="800" fill="${ink}"
+           font-family="Inter, sans-serif" opacity=".92">${b.g}</text>
+         <ellipse cx="-11" cy="-12" rx="8" ry="3.5" fill="#fff" opacity=".55"/>`
+      : `<circle r="22" fill="${b.c}"/>
+         <circle r="22" fill="url(#gloss)"/>
+         <circle r="22" fill="none" stroke="#000" stroke-opacity=".12"/>
+         <ellipse cx="-8" cy="-10" rx="7" ry="4" fill="#fff" opacity=".6" transform="rotate(-30,-8,-10)"/>`;
+    g.innerHTML = `
+      <circle class="sel-ring" r="32" fill="none" stroke="#1d1c20" stroke-width="2" stroke-dasharray="3 5" opacity=".5"/>
+      <g filter="url(#soft)">${body}</g>`;
     WIRES[wire].layer.appendChild(g);
     beadEls[wire].push(g);
     dragBead(g, wire, i);
@@ -462,6 +466,7 @@ function dragBead(el, wire, i) {
   let active = false;
   el.addEventListener("pointerdown", e => {
     e.preventDefault();
+    e.stopPropagation();
     select({ kind: "bead", wire, i });
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
@@ -480,7 +485,7 @@ function dragBead(el, wire, i) {
     }
     state[wire][i] = v;
     placeBead(wire, i);
-    refreshInfo();
+    refreshTag();
   });
   const end = () => {
     if (!active) return;
@@ -501,13 +506,14 @@ function buildCubes() {
     const g = document.createElementNS(NS, "g");
     g.setAttribute("class", "cube");
     g.innerHTML = `
-      <rect class="sel-ring" x="-5" y="-5" width="${CUBE + 10}" height="${CUBE + 13}" rx="8"
-        fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
-      <g filter="url(#shadow)">
-        <rect x="0" y="3" width="${CUBE}" height="${CUBE}" rx="5" fill="#000" opacity=".35"/>
+      <rect class="sel-ring" x="-6" y="-6" width="${CUBE + 12}" height="${CUBE + 16}" rx="10"
+        fill="none" stroke="#1d1c20" stroke-width="2" stroke-dasharray="3 5" opacity=".5"/>
+      <g filter="url(#soft)">
+        <rect x="2" y="5" width="${CUBE}" height="${CUBE}" rx="6" fill="${c.side}"/>
         <g class="cube-face">
-          <rect width="${CUBE}" height="${CUBE}" rx="5" fill="${c.c}"/>
-          <rect width="${CUBE}" height="${CUBE}" rx="5" fill="url(#shine)" opacity=".6"/>
+          <rect width="${CUBE}" height="${CUBE}" rx="6" fill="${c.c}"/>
+          <rect width="${CUBE}" height="${CUBE}" rx="6" fill="url(#cubeGloss)"/>
+          <rect x="1.5" y="1.5" width="${CUBE - 3}" height="${CUBE - 3}" rx="5" fill="none" stroke="#fff" stroke-opacity=".35"/>
           <text x="${CUBE / 2}" y="${CUBE / 2 + 7}" text-anchor="middle" font-size="20" font-weight="800"
             fill="#fff" font-family="Inter, sans-serif"></text>
         </g>
@@ -526,7 +532,7 @@ function placeCube(i, spin = false) {
   if (spin) {
     const f = el.querySelector(".cube-face");
     f.classList.remove("spin"); void f.getBBox(); f.classList.add("spin");
-    setTimeout(() => { txt.textContent = face; }, 130);
+    setTimeout(() => { txt.textContent = face; }, 140);
   } else {
     txt.textContent = face;
   }
@@ -537,13 +543,13 @@ function turnCube(i) {
   state.cubes.face[i] = (state.cubes.face[i] + 1) % 4;
   placeCube(i, true);
   save();
-  setTimeout(refreshInfo, 140);
 }
 
 function dragCube(el, i) {
   let startX = null, startLeft = 0, moved = false;
   el.addEventListener("pointerdown", e => {
     e.preventDefault();
+    e.stopPropagation();
     select({ kind: "cube", i });
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
@@ -560,7 +566,7 @@ function dragCube(el, i) {
     const v = Math.round((startLeft + dx - ROD_X0) / TRACK * (n - 1));
     state.cubes.pos[i] = Math.max(0, Math.min(n - 1, v));
     placeCube(i);
-    refreshInfo();
+    refreshTag();
   });
   const end = () => {
     if (startX === null) return;
@@ -575,56 +581,39 @@ function dragCube(el, i) {
 
 /* ================================================================= */
 const tag = document.getElementById("tag");
-const infoSwatch = document.getElementById("infoSwatch");
-const infoText = document.getElementById("infoText");
-const prevBtn = document.getElementById("prevBtn");
-const nextBtn = document.getElementById("nextBtn");
-const turnBtn = document.getElementById("turnBtn");
+const tagText = document.getElementById("tagText");
 
 function selEl(s) { return s.kind === "bead" ? beadEls[s.wire][s.i] : cubeEls[s.i]; }
 
 function select(s) {
   if (selected) selEl(selected).classList.remove("selected");
   selected = s;
+  if (!s) { tag.classList.add("hidden"); return; }
   const el = selEl(s);
   el.classList.add("selected");
   if (s.kind === "bead") el.parentNode.appendChild(el);
-  refreshInfo();
+  refreshTag();
 }
 
-function showTag(x, y, text) {
-  tag.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`);
-  tag.querySelector("text").textContent = text;
-  tag.setAttribute("visibility", "visible");
-}
-
-function refreshInfo() {
+function refreshTag() {
   if (!selected) return;
-  prevBtn.hidden = nextBtn.hidden = false;
+  let x, y, val;
   if (selected.kind === "bead") {
     const { wire, i } = selected;
-    const b = BEADS[wire][i];
-    const val = shownWire(wire, state[wire][i]);
     const p = WIRES[wire].points[state[wire][i]];
-    showTag(p.x, p.y, val);
-    infoSwatch.className = "swatch" + (b.g ? " square" : "");
-    infoSwatch.style.background = b.c;
-    infoSwatch.style.color = b.dark ? "#2a2a33" : "#fff";
-    infoSwatch.textContent = b.g || "";
-    infoText.innerHTML = `<span class="k">${WIRES[wire].code}${i + 1} =</span> ${val}`;
-    turnBtn.hidden = true;
+    x = p.x; y = p.y - 52;
+    val = state[wire][i] + WIRES[wire].shownFrom;
   } else {
     const { i } = selected;
-    const val = shownCube(i, state.cubes.pos[i]);
-    const face = state.cubes.face[i];
-    showTag(cubeX(i, state.cubes.pos[i]) + CUBE / 2, cubeY(i) + 26, val);
-    infoSwatch.className = "swatch square";
-    infoSwatch.style.background = CUBES[i].c;
-    infoSwatch.style.color = "#fff";
-    infoSwatch.textContent = FACES[face];
-    infoText.innerHTML = `<span class="k">C${i + 1} =</span> ${val} <span class="k">·</span> ${FACES[face]}`;
-    turnBtn.hidden = false;
+    x = cubeX(i, state.cubes.pos[i]) + CUBE / 2;
+    y = cubeY(i) - 26;
+    val = state.cubes.pos[i] + CUBES[i].shownFrom;
   }
+  x = Math.max(70, Math.min(930, x));
+  if (y < 26) y += 104;
+  tag.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`);
+  tagText.textContent = val;
+  tag.classList.remove("hidden");
 }
 
 function nudge(dir, big = false) {
@@ -639,38 +628,48 @@ function nudge(dir, big = false) {
     state.cubes.pos[i] = Math.max(0, Math.min(CUBES[i].stops - 1, state.cubes.pos[i] + step));
     placeCube(i);
   }
-  refreshInfo();
+  refreshTag();
   save();
 }
 
-prevBtn.onclick = () => nudge(-1);
-nextBtn.onclick = () => nudge(1);
-turnBtn.onclick = () => selected?.kind === "cube" && turnCube(selected.i);
+/* tag arrows: tap to step, hold to run */
+function holdRepeat(el, dir) {
+  let t1 = null, t2 = null;
+  const stop = () => { clearTimeout(t1); clearInterval(t2); };
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    nudge(dir);
+    t1 = setTimeout(() => { t2 = setInterval(() => nudge(dir), 55); }, 380);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => el.addEventListener(ev, stop));
+}
+holdRepeat(document.getElementById("tagPrev"), -1);
+holdRepeat(document.getElementById("tagNext"), 1);
+
+/* tap empty space to put the piece down */
+svg.addEventListener("pointerdown", e => {
+  if (!e.target.closest(".bead, .cube, #tag")) select(null);
+});
 
 window.addEventListener("keydown", e => {
   if (!selected || e.target.closest("textarea, input")) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); nudge(-1, e.shiftKey); }
   if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); nudge(1, e.shiftKey); }
   if ((e.key === "r" || e.key === "R" || e.key === "Enter") && selected.kind === "cube") turnCube(selected.i);
+  if (e.key === "Escape") select(null);
 });
-
-/* full arrangement, always visible */
-function updateReadout() {
-  const t = state.teal.map(v => shownWire("teal", v)).join(" ");
-  const r = state.red.map(v => shownWire("red", v)).join(" ");
-  const c = state.cubes.pos.map((v, i) => `${shownCube(i, v)}${FACES[state.cubes.face[i]]}`).join(" ");
-  document.getElementById("readout").textContent = `T[ ${t} ]  R[ ${r} ]  C[ ${c} ]`;
-  if (location.hash === "#solution") document.getElementById("solOut").value = JSON.stringify(state, null, 2);
-}
 
 /* ================================================================= */
 const checkBtn = document.getElementById("checkBtn");
-const checkMsg = document.getElementById("checkMsg");
+const bar = checkBtn.querySelector(".bar");
+
+function no() {
+  checkBtn.classList.remove("no"); void checkBtn.offsetWidth; checkBtn.classList.add("no");
+}
 
 checkBtn.onclick = async () => {
-  checkBtn.disabled = true;
-  checkMsg.className = "";
-  checkMsg.textContent = "Checking…";
+  checkBtn.classList.add("busy");
   try {
     const res = await fetch(`${API}/check`, {
       method: "POST",
@@ -678,50 +677,40 @@ checkBtn.onclick = async () => {
       body: JSON.stringify(state)
     });
     const data = await res.json().catch(() => ({}));
+    checkBtn.classList.remove("busy");
 
     if (res.status === 429) {
-      const mins = Math.ceil((data.retryAfter || 3600) / 60);
-      checkMsg.textContent = `Too many attempts. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`;
+      const secs = data.retryAfter || 60;
+      checkBtn.classList.add("cool");
+      bar.style.transition = "none";
+      bar.style.width = "100%";
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        bar.style.transition = `width ${secs}s linear`;
+        bar.style.width = "0";
+      }));
+      setTimeout(() => checkBtn.classList.remove("cool"), secs * 1000);
     } else if (data.ok && data.url) {
-      checkMsg.className = "good";
-      checkMsg.textContent = "Everything is where it belongs.";
-      setTimeout(() => { location.href = data.url; }, 1400);
-      return;
+      document.getElementById("white").classList.add("on");
+      setTimeout(() => { location.href = data.url; }, 1500);
     } else if (res.ok) {
-      checkMsg.textContent = "Not quite.";
       svg.classList.remove("wrong"); void svg.getBBox(); svg.classList.add("wrong");
     } else {
-      checkMsg.textContent = "Something went wrong. Try again in a bit.";
+      no();
     }
   } catch (e) {
-    checkMsg.textContent = "Couldn't reach the checker. Try again in a bit.";
+    checkBtn.classList.remove("busy");
+    no();
   }
-  checkBtn.disabled = false;
 };
 
 /* ================================================================= */
-if (location.hash === "#solution") {
-  document.getElementById("solution").style.display = "block";
-  document.getElementById("solCopy").onclick = () => {
-    const t = document.getElementById("solOut");
-    t.select();
-    navigator.clipboard?.writeText(t.value);
-  };
-}
+if (location.hash === "#solution") document.getElementById("solution").style.display = "block";
 
 buildBeads("teal"); buildBeads("red");
 buildCubes();
 placeAllBeads();
 placeAllCubes();
-updateReadout();
-
-document.getElementById("resetBtn").onclick = () => {
-  state = START();
-  placeAllBeads();
-  placeAllCubes();
-  refreshInfo();
-  save();
-};
+save();
 </script>
 </body>
 </html>
