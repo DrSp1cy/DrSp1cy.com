@@ -96,21 +96,18 @@
     80% { transform: translateX(3px); }
   }
 
-  .bead, .block { cursor: grab; }
-  .bead.dragging, .block.dragging { cursor: grabbing; }
-  .block { transition: transform .22s ease; }
-  .block.dragging { transition: none; }
+  .bead, .cube { cursor: grab; }
+  .bead.dragging, .cube.dragging { cursor: grabbing; }
   .sel-ring { display: none; }
   .selected .sel-ring { display: block; }
-  .block-face { transform-box: fill-box; transform-origin: center; }
-  .block-face.spin { animation: spin .26s ease-in-out; }
+  .cube-face { transform-box: fill-box; transform-origin: center; }
+  .cube-face.spin { animation: spin .26s ease-in-out; }
   @keyframes spin {
     0% { transform: scaleY(1); }
     50% { transform: scaleY(.05); }
     100% { transform: scaleY(1); }
   }
   #tag { pointer-events: none; }
-  .spot { transition: opacity .2s; }
 
   /* ---------- info bar ---------- */
   .info {
@@ -237,12 +234,8 @@
 <main>
   <p class="hint">Put everything where it belongs.</p>
 
-  <svg id="toy" viewBox="0 0 1000 820" aria-label="Bead maze toy">
+  <svg id="toy" viewBox="0 0 1000 850" aria-label="Bead maze toy">
     <defs>
-      <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#d9b47a"/>
-        <stop offset="1" stop-color="#a77e47"/>
-      </linearGradient>
       <linearGradient id="woodSide" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0" stop-color="#c79f63"/>
         <stop offset="1" stop-color="#9c7440"/>
@@ -261,12 +254,7 @@
       </filter>
     </defs>
 
-    <ellipse cx="500" cy="792" rx="430" ry="22" fill="#000" opacity=".5"/>
-
-    <rect x="100" y="595" width="800" height="28" rx="4" fill="url(#wood)" opacity=".85"/>
-    <rect x="175" y="644" width="650" height="14" rx="7" fill="url(#rod)"/>
-    <g id="spotsBack"></g>
-    <g id="blocksBack"></g>
+    <ellipse cx="500" cy="822" rx="430" ry="22" fill="#000" opacity=".5"/>
 
     <g fill="none" stroke-linecap="round">
       <path id="wireRed" stroke="#d8432c" stroke-width="8"
@@ -281,19 +269,15 @@
     <g id="beadsTeal"></g>
     <g id="beadsRed"></g>
 
-    <rect x="100" y="555" width="75" height="225" rx="5" fill="url(#woodSide)"/>
-    <rect x="825" y="555" width="75" height="225" rx="5" fill="url(#woodSide)"/>
+    <rect x="100" y="555" width="75" height="255" rx="5" fill="url(#woodSide)"/>
+    <rect x="825" y="555" width="75" height="255" rx="5" fill="url(#woodSide)"/>
     <circle cx="120" cy="566" r="6" fill="#222"/>
     <circle cx="155" cy="566" r="6" fill="#222"/>
     <circle cx="880" cy="566" r="6" fill="#222"/>
     <circle cx="845" cy="566" r="6" fill="#222"/>
 
-    <rect x="175" y="744" width="650" height="16" rx="8" fill="url(#rod)"/>
-    <g id="spotsFront"></g>
-    <g id="blocksFront"></g>
-
-    <!-- whichever block is being carried goes here so it floats above everything -->
-    <g id="carryLayer"></g>
+    <g id="rods"></g>
+    <g id="cubes"></g>
 
     <g id="tag" visibility="hidden">
       <rect x="-34" y="-62" width="68" height="26" rx="6" fill="#0b0b0d" stroke="#3a3a44"/>
@@ -312,7 +296,7 @@
     </div>
   </div>
 
-  <p class="legend">Drag beads along the wires · drag blocks to any spot · tap a block to turn it · arrow keys fine-tune a bead</p>
+  <p class="legend">Drag beads along the wires · drag cubes along their rods · tap a cube to turn it · arrow keys fine-tune the selected piece</p>
   <p id="readout"></p>
 
   <div class="check">
@@ -362,24 +346,20 @@ const BEADS = {
   ]
 };
 
-/* blocks */
-const SPOTS_PER_ROD = 5;
-const SHAPES  = ["▲", "■", "●", "◆", "★", "⬟", "⬢", "✚", "☾", "♥"];
-const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-const MARKS   = ["☉", "☽", "☿", "♀", "♁", "♂", "♃", "♄", "♅", "♆"];
-const BLOCK_COLORS = ["#e2445c", "#f07f2e", "#f2c12c", "#57b947", "#2bb3a8",
-                      "#2c8fd6", "#3c5fc9", "#7a52c7", "#c24fb0", "#8a6a4a"];
-const blockFaces = i => [String(i + 1), SHAPES[i], LETTERS[i], MARKS[i]];
-const BLOCK_COUNT = 10;
+/* cubes: one per rod, top to bottom. Same color = a pair. */
+const CUBES = [
+  { stops: 91,  shownFrom: 0, c: "#e2445c" },
+  { stops: 181, shownFrom: 0, c: "#e2445c" },
+  { stops: 91,  shownFrom: 0, c: "#2c8fd6" },
+  { stops: 181, shownFrom: 0, c: "#2c8fd6" }
+];
+const FACES = ["▲", "▶", "▼", "◀"];   // same four on every cube, same order
 
 /* ================================================================= */
 const START = () => ({
   teal: [292, 304, 316, 328, 340, 352, 364],
   red:  [0, 2, 4, 6, 8, 10, 12],
-  blocks: {
-    spot: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-    face: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  }
+  cubes: { pos: [0, 0, 0, 0], face: [0, 0, 0, 0] }
 });
 
 let state = load() || START();
@@ -387,15 +367,16 @@ let selected = null;
 
 function load() {
   try {
-    const s = JSON.parse(localStorage.getItem("playtime-v3"));
-    if (s && s.teal?.length === 7 && s.red?.length === 7 && s.blocks?.spot?.length === BLOCK_COUNT
+    const s = JSON.parse(localStorage.getItem("playtime-v4"));
+    if (s && s.teal?.length === 7 && s.red?.length === 7 && s.cubes?.pos?.length === CUBES.length
         && s.teal.every(v => v >= 0 && v < WIRES.teal.stops)
-        && s.red.every(v => v >= 0 && v < WIRES.red.stops)) return s;
+        && s.red.every(v => v >= 0 && v < WIRES.red.stops)
+        && s.cubes.pos.every((v, i) => v >= 0 && v < CUBES[i].stops)) return s;
   } catch (e) {}
   return null;
 }
 function save() {
-  try { localStorage.setItem("playtime-v3", JSON.stringify(state)); } catch (e) {}
+  try { localStorage.setItem("playtime-v4", JSON.stringify(state)); } catch (e) {}
   updateReadout();
 }
 
@@ -418,7 +399,8 @@ WIRES.red.points  = stopPoints(document.getElementById("wireRed"),  WIRES.red.st
 WIRES.teal.layer = document.getElementById("beadsTeal");
 WIRES.red.layer  = document.getElementById("beadsRed");
 
-const shown = (wire, v) => v + WIRES[wire].shownFrom;
+const shownWire = (wire, v) => v + WIRES[wire].shownFrom;
+const shownCube = (i, v) => v + CUBES[i].shownFrom;
 
 function svgPoint(e) {
   const p = svg.createSVGPoint();
@@ -426,31 +408,26 @@ function svgPoint(e) {
   return p.matrixTransform(svg.getScreenCTM().inverse());
 }
 
-/* block spots: 0..4 on the back rod, 5..9 on the front rod */
-const BLOCK = 54;
+/* rods */
+const CUBE = 40;
 const ROD_X0 = 175, ROD_W = 650;
-const RODS = [
-  { y: 651 - BLOCK / 2 - 4, blocks: document.getElementById("blocksBack"),  spots: document.getElementById("spotsBack"),  pegY: 651 },
-  { y: 752 - BLOCK / 2 - 4, blocks: document.getElementById("blocksFront"), spots: document.getElementById("spotsFront"), pegY: 752 }
-];
-const SPOTS = [];
-RODS.forEach((r, ri) => {
-  for (let k = 0; k < SPOTS_PER_ROD; k++) {
-    const cx = ROD_X0 + (k + .5) * ROD_W / SPOTS_PER_ROD;
-    SPOTS.push({ x: cx - BLOCK / 2, y: r.y, cx, cy: r.y + BLOCK / 2, rod: ri });
-    const peg = document.createElementNS(NS, "rect");
-    peg.setAttribute("class", "spot");
-    peg.setAttribute("x", cx - BLOCK / 2 - 2);
-    peg.setAttribute("y", r.y - 2);
-    peg.setAttribute("width", BLOCK + 4);
-    peg.setAttribute("height", BLOCK + 8);
-    peg.setAttribute("rx", 8);
-    peg.setAttribute("fill", "none");
-    peg.setAttribute("stroke", "#3a3a44");
-    peg.setAttribute("stroke-dasharray", "3 5");
-    r.spots.appendChild(peg);
-  }
+const TRACK = ROD_W - CUBE;          // distance a cube's left edge can travel
+const ROD_Y = [625, 677, 729, 781];  // rod centre lines, top to bottom
+
+const rodLayer = document.getElementById("rods");
+ROD_Y.forEach(y => {
+  const r = document.createElementNS(NS, "rect");
+  r.setAttribute("x", ROD_X0);
+  r.setAttribute("y", y - 6);
+  r.setAttribute("width", ROD_W);
+  r.setAttribute("height", 12);
+  r.setAttribute("rx", 6);
+  r.setAttribute("fill", "url(#rod)");
+  rodLayer.appendChild(r);
 });
+
+const cubeX = (i, v) => ROD_X0 + TRACK * v / (CUBES[i].stops - 1);
+const cubeY = i => ROD_Y[i] - CUBE / 2 - 2;
 
 /* ================================================================= */
 const beadEls = { teal: [], red: [] };
@@ -516,110 +493,84 @@ function dragBead(el, wire, i) {
 }
 
 /* ================================================================= */
-const blockEls = [];
+const cubeEls = [];
 
-function buildBlocks() {
-  for (let i = 0; i < BLOCK_COUNT; i++) {
+function buildCubes() {
+  const layer = document.getElementById("cubes");
+  CUBES.forEach((c, i) => {
     const g = document.createElementNS(NS, "g");
-    g.setAttribute("class", "block");
+    g.setAttribute("class", "cube");
     g.innerHTML = `
-      <rect class="sel-ring" x="-5" y="-5" width="${BLOCK + 10}" height="${BLOCK + 14}" rx="9"
+      <rect class="sel-ring" x="-5" y="-5" width="${CUBE + 10}" height="${CUBE + 13}" rx="8"
         fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
       <g filter="url(#shadow)">
-        <rect x="0" y="4" width="${BLOCK}" height="${BLOCK}" rx="6" fill="#000" opacity=".35"/>
-        <g class="block-face">
-          <rect width="${BLOCK}" height="${BLOCK}" rx="6" fill="${BLOCK_COLORS[i]}"/>
-          <rect width="${BLOCK}" height="${BLOCK}" rx="6" fill="url(#shine)" opacity=".6"/>
-          <text x="${BLOCK / 2}" y="${BLOCK / 2 + 10}" text-anchor="middle" font-size="28" font-weight="800"
+        <rect x="0" y="3" width="${CUBE}" height="${CUBE}" rx="5" fill="#000" opacity=".35"/>
+        <g class="cube-face">
+          <rect width="${CUBE}" height="${CUBE}" rx="5" fill="${c.c}"/>
+          <rect width="${CUBE}" height="${CUBE}" rx="5" fill="url(#shine)" opacity=".6"/>
+          <text x="${CUBE / 2}" y="${CUBE / 2 + 7}" text-anchor="middle" font-size="20" font-weight="800"
             fill="#fff" font-family="Inter, sans-serif"></text>
         </g>
       </g>`;
-    blockEls.push(g);
-    dragBlock(g, i);
-  }
-}
-
-function setBlockPos(el, x, y) {
-  el.style.transform = `translate(${x}px, ${y}px)`;
-}
-
-function placeBlocks(spinIdx = -1) {
-  blockEls.forEach((el, i) => {
-    const s = SPOTS[state.blocks.spot[i]];
-    const layer = RODS[s.rod].blocks;
-    if (el.parentNode !== layer) layer.appendChild(el);
-    setBlockPos(el, s.x, s.y);
-    const txt = el.querySelector("text");
-    const face = blockFaces(i)[state.blocks.face[i]];
-    if (i === spinIdx) {
-      const f = el.querySelector(".block-face");
-      f.classList.remove("spin"); void f.getBBox(); f.classList.add("spin");
-      setTimeout(() => { txt.textContent = face; }, 130);
-    } else {
-      txt.textContent = face;
-    }
+    layer.appendChild(g);
+    cubeEls.push(g);
+    dragCube(g, i);
   });
 }
 
-function turnBlock(i) {
-  state.blocks.face[i] = (state.blocks.face[i] + 1) % 4;
-  placeBlocks(i);
+function placeCube(i, spin = false) {
+  const el = cubeEls[i];
+  el.setAttribute("transform", `translate(${cubeX(i, state.cubes.pos[i]).toFixed(1)},${cubeY(i)})`);
+  const txt = el.querySelector("text");
+  const face = FACES[state.cubes.face[i]];
+  if (spin) {
+    const f = el.querySelector(".cube-face");
+    f.classList.remove("spin"); void f.getBBox(); f.classList.add("spin");
+    setTimeout(() => { txt.textContent = face; }, 130);
+  } else {
+    txt.textContent = face;
+  }
+}
+function placeAllCubes() { CUBES.forEach((_, i) => placeCube(i)); }
+
+function turnCube(i) {
+  state.cubes.face[i] = (state.cubes.face[i] + 1) % 4;
+  placeCube(i, true);
   save();
   setTimeout(refreshInfo, 140);
 }
 
-function dragBlock(el, i) {
-  let start = null, grab = null, moved = false;
+function dragCube(el, i) {
+  let startX = null, startLeft = 0, moved = false;
   el.addEventListener("pointerdown", e => {
     e.preventDefault();
-    select({ kind: "block", i });
-    document.getElementById("carryLayer").appendChild(el);
+    select({ kind: "cube", i });
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
-    const p = svgPoint(e);
-    const s = SPOTS[state.blocks.spot[i]];
-    start = p;
-    grab = { dx: p.x - s.x, dy: p.y - s.y };
+    startX = svgPoint(e).x;
+    startLeft = cubeX(i, state.cubes.pos[i]);
     moved = false;
   });
   el.addEventListener("pointermove", e => {
-    if (!start) return;
-    const p = svgPoint(e);
-    if (!moved && Math.hypot(p.x - start.x, p.y - start.y) > 8) moved = true;
+    if (startX === null) return;
+    const dx = svgPoint(e).x - startX;
+    if (Math.abs(dx) > 6) moved = true;
     if (!moved) return;
-    setBlockPos(el, p.x - grab.dx, p.y - grab.dy);
+    const n = CUBES[i].stops;
+    const v = Math.round((startLeft + dx - ROD_X0) / TRACK * (n - 1));
+    state.cubes.pos[i] = Math.max(0, Math.min(n - 1, v));
+    placeCube(i);
+    refreshInfo();
   });
-  const end = e => {
-    if (!start) return;
+  const end = () => {
+    if (startX === null) return;
+    startX = null;
     el.classList.remove("dragging");
-    if (moved) {
-      const p = svgPoint(e);
-      const cx = p.x - grab.dx + BLOCK / 2, cy = p.y - grab.dy + BLOCK / 2;
-      let best = 0, bd = Infinity;
-      SPOTS.forEach((s, k) => {
-        const d = (s.cx - cx) ** 2 + (s.cy - cy) ** 2;
-        if (d < bd) { bd = d; best = k; }
-      });
-      const from = state.blocks.spot[i];
-      const other = state.blocks.spot.indexOf(best);
-      if (other !== -1 && other !== i) state.blocks.spot[other] = from; // swap
-      state.blocks.spot[i] = best;
-      placeBlocks();
-      save();
-      refreshInfo();
-    } else {
-      placeBlocks();
-      turnBlock(i);
-    }
-    start = null;
+    if (!moved) turnCube(i);
+    else save();
   };
   el.addEventListener("pointerup", end);
-  el.addEventListener("pointercancel", () => {
-    if (!start) return;
-    start = null;
-    el.classList.remove("dragging");
-    placeBlocks();
-  });
+  el.addEventListener("pointercancel", () => { startX = null; el.classList.remove("dragging"); });
 }
 
 /* ================================================================= */
@@ -630,7 +581,7 @@ const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const turnBtn = document.getElementById("turnBtn");
 
-function selEl(s) { return s.kind === "bead" ? beadEls[s.wire][s.i] : blockEls[s.i]; }
+function selEl(s) { return s.kind === "bead" ? beadEls[s.wire][s.i] : cubeEls[s.i]; }
 
 function select(s) {
   if (selected) selEl(selected).classList.remove("selected");
@@ -641,65 +592,74 @@ function select(s) {
   refreshInfo();
 }
 
+function showTag(x, y, text) {
+  tag.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`);
+  tag.querySelector("text").textContent = text;
+  tag.setAttribute("visibility", "visible");
+}
+
 function refreshInfo() {
   if (!selected) return;
+  prevBtn.hidden = nextBtn.hidden = false;
   if (selected.kind === "bead") {
     const { wire, i } = selected;
     const b = BEADS[wire][i];
-    const val = shown(wire, state[wire][i]);
+    const val = shownWire(wire, state[wire][i]);
     const p = WIRES[wire].points[state[wire][i]];
-    tag.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
-    tag.querySelector("text").textContent = val;
-    tag.setAttribute("visibility", "visible");
-
+    showTag(p.x, p.y, val);
     infoSwatch.className = "swatch" + (b.g ? " square" : "");
     infoSwatch.style.background = b.c;
     infoSwatch.style.color = b.dark ? "#2a2a33" : "#fff";
     infoSwatch.textContent = b.g || "";
     infoText.innerHTML = `<span class="k">${WIRES[wire].code}${i + 1} =</span> ${val}`;
-    prevBtn.hidden = nextBtn.hidden = false;
     turnBtn.hidden = true;
   } else {
     const { i } = selected;
-    const face = state.blocks.face[i];
-    tag.setAttribute("visibility", "hidden");
+    const val = shownCube(i, state.cubes.pos[i]);
+    const face = state.cubes.face[i];
+    showTag(cubeX(i, state.cubes.pos[i]) + CUBE / 2, cubeY(i) + 26, val);
     infoSwatch.className = "swatch square";
-    infoSwatch.style.background = BLOCK_COLORS[i];
+    infoSwatch.style.background = CUBES[i].c;
     infoSwatch.style.color = "#fff";
-    infoSwatch.textContent = blockFaces(i)[face];
-    infoText.innerHTML = `<span class="k">B${i + 1} =</span> spot ${state.blocks.spot[i] + 1} <span class="k">·</span> face ${face + 1}`;
-    prevBtn.hidden = nextBtn.hidden = true;
+    infoSwatch.textContent = FACES[face];
+    infoText.innerHTML = `<span class="k">C${i + 1} =</span> ${val} <span class="k">·</span> ${FACES[face]}`;
     turnBtn.hidden = false;
   }
 }
 
 function nudge(dir, big = false) {
-  if (selected?.kind !== "bead") return;
-  const { wire, i } = selected;
-  const n = WIRES[wire].stops;
-  state[wire][i] = Math.max(0, Math.min(n - 1, state[wire][i] + dir * (big ? 10 : 1)));
-  placeBead(wire, i);
+  if (!selected) return;
+  const step = dir * (big ? 10 : 1);
+  if (selected.kind === "bead") {
+    const { wire, i } = selected;
+    state[wire][i] = Math.max(0, Math.min(WIRES[wire].stops - 1, state[wire][i] + step));
+    placeBead(wire, i);
+  } else {
+    const { i } = selected;
+    state.cubes.pos[i] = Math.max(0, Math.min(CUBES[i].stops - 1, state.cubes.pos[i] + step));
+    placeCube(i);
+  }
   refreshInfo();
   save();
 }
 
 prevBtn.onclick = () => nudge(-1);
 nextBtn.onclick = () => nudge(1);
-turnBtn.onclick = () => selected?.kind === "block" && turnBlock(selected.i);
+turnBtn.onclick = () => selected?.kind === "cube" && turnCube(selected.i);
 
 window.addEventListener("keydown", e => {
   if (!selected || e.target.closest("textarea, input")) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); nudge(-1, e.shiftKey); }
   if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); nudge(1, e.shiftKey); }
-  if ((e.key === "r" || e.key === "R" || e.key === "Enter") && selected.kind === "block") turnBlock(selected.i);
+  if ((e.key === "r" || e.key === "R" || e.key === "Enter") && selected.kind === "cube") turnCube(selected.i);
 });
 
 /* full arrangement, always visible */
 function updateReadout() {
-  const t = state.teal.map(v => shown("teal", v)).join(" ");
-  const r = state.red.map(v => shown("red", v)).join(" ");
-  const b = state.blocks.spot.map((s, i) => `${s + 1}/${state.blocks.face[i] + 1}`).join(" ");
-  document.getElementById("readout").textContent = `T[ ${t} ]  R[ ${r} ]  B[ ${b} ]`;
+  const t = state.teal.map(v => shownWire("teal", v)).join(" ");
+  const r = state.red.map(v => shownWire("red", v)).join(" ");
+  const c = state.cubes.pos.map((v, i) => `${shownCube(i, v)}${FACES[state.cubes.face[i]]}`).join(" ");
+  document.getElementById("readout").textContent = `T[ ${t} ]  R[ ${r} ]  C[ ${c} ]`;
   if (location.hash === "#solution") document.getElementById("solOut").value = JSON.stringify(state, null, 2);
 }
 
@@ -750,15 +710,15 @@ if (location.hash === "#solution") {
 }
 
 buildBeads("teal"); buildBeads("red");
-buildBlocks();
+buildCubes();
 placeAllBeads();
-placeBlocks();
+placeAllCubes();
 updateReadout();
 
 document.getElementById("resetBtn").onclick = () => {
   state = START();
   placeAllBeads();
-  placeBlocks();
+  placeAllCubes();
   refreshInfo();
   save();
 };
