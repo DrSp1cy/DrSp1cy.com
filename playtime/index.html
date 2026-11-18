@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Everyone knows time didn't start till 1900!</title>
 <meta name="theme-color" content="#f3f2ef">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-<link rel="manifest" href="site.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@500;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -148,6 +148,78 @@
     height: 3px; width: 0;
     background: rgba(255,255,255,.7);
   }
+
+  /* ---------- the poem ---------- */
+  #hintBtn {
+    position: fixed;
+    right: 18px; bottom: 12px;
+    z-index: 10;
+    width: 36px; height: 36px;
+    border: none;
+    background: none;
+    font: italic 400 24px 'Cormorant Garamond', Georgia, serif;
+    color: #1d1c20;
+    opacity: .09;
+    cursor: pointer;
+    transition: opacity .8s ease;
+  }
+  #hintBtn:hover, #hintBtn:focus-visible { opacity: .32; outline: none; }
+
+  #poem {
+    position: fixed; inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 6vh 8vw;
+    background: rgba(243, 242, 239, .74);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .9s ease;
+    cursor: pointer;
+  }
+  #poem.open { opacity: 1; pointer-events: all; }
+  #poem .verse {
+    max-width: 62ch;
+    font: italic 300 clamp(17px, 2.1vw, 27px)/1.5 'Cormorant Garamond', Georgia, serif;
+    color: #2a2730;
+    letter-spacing: .005em;
+  }
+  #poem .verse span {
+    display: block;
+    margin-bottom: .55em;
+    padding-left: 1.4em;
+    text-indent: -1.4em;
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+    transition: opacity 1.1s ease, transform 1.1s ease, filter 1.1s ease;
+  }
+  #poem.open .verse span { opacity: 1; transform: none; filter: none; }
+  #poem .verse span i {
+    display: inline-block;
+    width: .55em; height: .55em;
+    margin-right: .7em;
+    border-radius: 50%;
+    vertical-align: .08em;
+  }
+  #poem .rule {
+    width: 28px; height: 1px;
+    margin: 0 auto 4.5vh;
+    background: #2a2730;
+    opacity: 0;
+    transition: opacity 1.4s ease .2s;
+  }
+  #poem.open .rule { opacity: .25; }
+   #poem .gap {
+    width: 28px; height: 1px;
+    margin: 1.1em 0 1.6em 1.4em;
+    background: #2a2730;
+    opacity: 0;
+    transition: opacity 1.1s ease;
+  }
+  #poem.open .gap { opacity: .2; }
 
   /* ---------- exit ---------- */
   #white {
@@ -318,6 +390,15 @@
   <button id="checkBtn">Check my work!<span class="bar"></span></button>
 </main>
 
+<button id="hintBtn" aria-label="?">?</button>
+
+<div id="poem">
+  <div>
+    <div class="rule"></div>
+    <div class="verse" id="verse"></div>
+  </div>
+</div>
+
 <div id="white"></div>
 
 <div id="solution"><textarea id="solOut" readonly></textarea></div>
@@ -432,6 +513,11 @@ const sfx = (() => {
       tone(104, 0.16, 0.32, 0.25, "triangle");
     },
     cool()  { if (ctx && !muted) tone(220, 0, 0.18, 0.12, "sine"); },
+    hint()  {
+      if (!ctx || muted) return;
+      tone(659.25, 0, 1.4, 0.05, "sine");
+      tone(987.77, 0.12, 1.6, 0.035, "sine");
+    },
     win() {
       if (!ctx || muted) return;
       [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, k) => {
@@ -453,26 +539,34 @@ const WIRES = {
   red:  { stops: 127, shownFrom: 0 }
 };
 
-const BEADS = {
-  teal: [
-    { c: "#8a5cc7" },
-    { c: "#f6f4f1", g: "◕", dark: true },
-    { c: "#2aa3c9" },
-    { c: "#f5cf2a", g: "✦", dark: true },
-    { c: "#9bd13c" },
-    { c: "#5b6b8c", g: "☾" },
-    { c: "#d8352c" }
-  ],
-  red: [
-    { c: "#f08a3c", g: "☻" },
-    { c: "#c2369a" },
-    { c: "#8c2b25" },
-    { c: "#4fb548", g: "◉" },
-    { c: "#f5a3c7", g: "✿", dark: true },
-    { c: "#f5cf2a" },
-    { c: "#2a6fd6" }
-  ]
-};
+/* Pairs: teal bead N and red bead N look identical. Order = poem line order. */
+const PAIRS = [
+  { c: "#f08a3c", g: "☻" },               // 1
+  { c: "#f6f4f1", g: "◕", dark: true },   // 2
+  { c: "#2aa3c9" },                       // 3
+  { c: "#f5cf2a", g: "✦", dark: true },   // 4
+  { c: "#9bd13c" },                       // 5
+  { c: "#5b6b8c", g: "☾" },               // 6
+  { c: "#8a5cc7" }                        // 7
+];
+const BEADS = { teal: PAIRS, red: PAIRS };
+
+const POEM = [
+  "Mirrors watched as paper closed the war to end all wars;",
+  "seven thousand islands lit up fireworks that weren\u2019t theirs;",
+  "a world of blocks shed beta on the day it came of age;",
+  "the doctor woke as all the zeros rolled across the page;",
+  "the smallest switch first whispered in a lab of phones and wire;",
+  "a harbor saw a second dawn, a morning made of fire;",
+  "a ballroom held its breath for words that never found their end."
+];
+ 
+const POEM_2 = [
+  "Where do Datacats even come from?",
+  "Forget this, im moving to Shikotan..."
+];
+ 
+const SHOW_PAIR_MARKS = false;   // true = a coloured dot before each line shows which pair it belongs to
 
 const CUBES = [
   { stops: 91,  shownFrom: 0, c: "#e2445c", side: "#9e2236" },
@@ -840,6 +934,47 @@ checkBtn.onclick = async () => {
     no();
   }
 };
+
+/* ================================================================= */
+const poem = document.getElementById("poem");
+const verse = document.getElementById("verse");
+POEM.forEach((line, k) => {
+  const span = document.createElement("span");
+  if (SHOW_PAIR_MARKS) {
+    const dot = document.createElement("i");
+    dot.style.background = PAIRS[k].c;
+    dot.style.boxShadow = "inset 0 0 0 1px rgba(0,0,0,.15)";
+    span.appendChild(dot);
+  }
+  span.appendChild(document.createTextNode(line));
+  span.style.transitionDelay = `${0.35 + k * 0.22}s`;
+  verse.appendChild(span);
+});
+ const gap = document.createElement("div");
+gap.className = "gap";
+gap.style.transitionDelay = `${0.35 + POEM.length * 0.22}s`;
+verse.appendChild(gap);
+POEM_2.forEach((line, k) => {
+  const span = document.createElement("span");
+  if (SHOW_PAIR_MARKS) {
+    const dot = document.createElement("i");
+    dot.style.background = CUBES[k * 2].c;
+    dot.style.boxShadow = "inset 0 0 0 1px rgba(0,0,0,.15)";
+    span.appendChild(dot);
+  }
+  span.appendChild(document.createTextNode(line));
+  span.style.transitionDelay = `${0.35 + (POEM.length + 1 + k) * 0.22}s`;
+  verse.appendChild(span);
+});
+function openPoem() {
+  select(null);
+  sfx.hint();
+  poem.classList.add("open");
+}
+function closePoem() { poem.classList.remove("open"); }
+document.getElementById("hintBtn").addEventListener("click", e => { e.stopPropagation(); openPoem(); });
+poem.addEventListener("click", closePoem);
+window.addEventListener("keydown", e => { if (e.key === "Escape" && poem.classList.contains("open")) closePoem(); }, true);
 
 /* ================================================================= */
 if (location.hash === "#solution") document.getElementById("solution").style.display = "block";
