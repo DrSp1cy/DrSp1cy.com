@@ -1,195 +1,767 @@
-/* =================================================================
-   drsp1cy · playtime door
-   Cloudflare Worker at door.drsp1cy.com
-
-   POST /check   → checks an arrangement against the SOLUTION secret
-   GET  /enter   → trades a one-time pass for a cookie, then redirects to /
-   GET  /        → the hidden page (only with a valid cookie)
-
-   Secrets (Settings → Variables and Secrets):
-     SOLUTION      JSON of the correct arrangement (from /playtime/#solution)
-     TOKEN_SECRET  any long random string, used to sign passes
-   Optional binding:
-     ATTEMPTS      a KV namespace, enables the attempt limit
-   ================================================================= */
-
-const SITE = "https://drsp1cy.com";   // who's allowed to call /check
-const MAX_ATTEMPTS = 10;              // per visitor per window
-const WINDOW_SECONDS = 3600;          // 1 hour
-const PASS_DAYS = 30;                 // how long a solver stays "in"
-
-/* ---------- the hidden page ----------
-   Everything here is private: it lives only in this Worker.
-   Edit freely. Images can be data: URLs or hosted somewhere private. */
-const VAULT_HTML = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>inside · drsp1cy</title>
-<meta name="robots" content="noindex">
+<title>playtime · drsp1cy</title>
+<meta name="description" content="Put everything where it belongs.">
+<meta name="theme-color" content="#0b0b0d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b0b0d'/><circle cx='50' cy='50' r='18' fill='none' stroke='%23c2414b' stroke-width='8'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-  body { margin:0; min-height:100vh; display:grid; place-items:center;
-         background:#0b0b0d; color:#e6e4e1; font-family:Inter,system-ui,sans-serif; }
-  .box { max-width:640px; padding:32px; text-align:center; line-height:1.7; }
-  h1 { font-weight:600; letter-spacing:-.02em; }
-  p { color:#8b8890; }
-  a { color:#c2414b; }
+  :root {
+    --bg: #0b0b0d;
+    --surface: #131317;
+    --border: #24242b;
+    --text: #e6e4e1;
+    --muted: #8b8890;
+    --faint: #55535b;
+    --accent: #c2414b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 45%, rgba(255, 220, 170, .05), transparent 70%);
+    pointer-events: none;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  nav {
+    border-bottom: 1px solid var(--border);
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 14px;
+  }
+  .crumb { font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+  .crumb a:hover { color: var(--text); }
+  .crumb b { color: var(--text); font-weight: 400; }
+  .crumb .one { color: var(--accent); }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn:hover { color: var(--text); border-color: var(--faint); }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  .hint {
+    font-size: 14px;
+    color: var(--faint);
+    font-style: italic;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  #toy {
+    width: 100%;
+    max-width: 920px;
+    height: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  #toy.wrong { animation: shudder .5s ease; }
+  @keyframes shudder {
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+  }
+
+  .bead, .block { cursor: grab; }
+  .bead.dragging, .block.dragging { cursor: grabbing; }
+  .block { transition: transform .22s ease; }
+  .block.dragging { transition: none; }
+  .sel-ring { display: none; }
+  .selected .sel-ring { display: block; }
+  .block-face { transform-box: fill-box; transform-origin: center; }
+  .block-face.spin { animation: spin .26s ease-in-out; }
+  @keyframes spin {
+    0% { transform: scaleY(1); }
+    50% { transform: scaleY(.05); }
+    100% { transform: scaleY(1); }
+  }
+  #tag { pointer-events: none; }
+  .spot { transition: opacity .2s; }
+
+  /* ---------- info bar ---------- */
+  .info {
+    width: 100%;
+    max-width: 920px;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    min-height: 64px;
+  }
+  .swatch {
+    width: 36px; height: 36px;
+    flex: none;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 800;
+    font-size: 17px;
+    color: #fff;
+    background: var(--border);
+  }
+  .swatch.square { border-radius: 7px; }
+  .info-text {
+    flex: 1;
+    min-width: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+  }
+  .info-text .k { color: var(--muted); }
+  .info-ctrl { display: flex; gap: 6px; flex: none; }
+  .info-ctrl .btn { padding: 6px 10px; }
+
+  .legend {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--faint);
+    text-align: center;
+  }
+  #readout {
+    margin-top: 6px;
+    max-width: 920px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--faint);
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.6;
+  }
+
+  /* ---------- check ---------- */
+  .check {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  #checkBtn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font: inherit;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 14px 32px;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(194, 65, 75, .3);
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+  }
+  #checkBtn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(194, 65, 75, .45); }
+  #checkBtn:disabled { opacity: .5; cursor: wait; transform: none; }
+  #checkMsg { font-size: 14px; color: var(--muted); min-height: 1.4em; text-align: center; }
+  #checkMsg.good { color: #7fd1a0; }
+
+  /* ---------- solution helper (#solution) ---------- */
+  #solution {
+    display: none;
+    width: 100%;
+    max-width: 920px;
+    margin-top: 32px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #solution h2 { color: var(--text); font-size: 15px; margin-bottom: 6px; }
+  #solution p { margin-bottom: 12px; line-height: 1.5; }
+  #solution textarea {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  #solution code { color: var(--text); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 24px;
+    font-size: 12px;
+    color: var(--faint);
+    text-align: center;
+  }
 </style>
 </head>
 <body>
-  <div class="box">
-    <h1>You made it in.</h1>
-    <p>Replace this with whatever is waiting behind the door.</p>
-    <p><a href="${SITE}/playtime/">back to playtime</a></p>
+
+<nav>
+  <span class="crumb"><a href="/">drsp<span class="one">1</span>cy</a> / <b>playtime</b></span>
+  <button class="btn" id="resetBtn">Reset</button>
+</nav>
+
+<main>
+  <p class="hint">Put everything where it belongs.</p>
+
+  <svg id="toy" viewBox="0 0 1000 820" aria-label="Bead maze toy">
+    <defs>
+      <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#d9b47a"/>
+        <stop offset="1" stop-color="#a77e47"/>
+      </linearGradient>
+      <linearGradient id="woodSide" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#c79f63"/>
+        <stop offset="1" stop-color="#9c7440"/>
+      </linearGradient>
+      <linearGradient id="rod" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ead2a8"/>
+        <stop offset="1" stop-color="#b8925c"/>
+      </linearGradient>
+      <radialGradient id="shine" cx=".35" cy=".3" r=".7">
+        <stop offset="0" stop-color="#fff" stop-opacity=".45"/>
+        <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".25"/>
+      </radialGradient>
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity=".45"/>
+      </filter>
+    </defs>
+
+    <ellipse cx="500" cy="792" rx="430" ry="22" fill="#000" opacity=".5"/>
+
+    <rect x="100" y="595" width="800" height="28" rx="4" fill="url(#wood)" opacity=".85"/>
+    <rect x="175" y="644" width="650" height="14" rx="7" fill="url(#rod)"/>
+    <g id="spotsBack"></g>
+    <g id="blocksBack"></g>
+
+    <g fill="none" stroke-linecap="round">
+      <path id="wireRed" stroke="#d8432c" stroke-width="8"
+        d="M120,560 L120,170 C120,60 290,60 290,170 L290,500 C290,590 410,590 410,500 L410,130 C410,30 560,30 560,130 L560,440 C560,530 690,530 690,440 L690,170 C690,60 880,60 880,170 L880,560"/>
+      <path stroke="#ff8a6e" stroke-width="2" opacity=".5" transform="translate(-2,-1)"
+        d="M120,560 L120,170 C120,60 290,60 290,170 L290,500 C290,590 410,590 410,500 L410,130 C410,30 560,30 560,130 L560,440 C560,530 690,530 690,440 L690,170 C690,60 880,60 880,170 L880,560"/>
+      <path id="wireTeal" stroke="#1fa39a" stroke-width="8"
+        d="M155,560 L155,330 C155,240 230,230 260,320 C300,450 360,470 410,400 C460,330 500,270 560,340 C610,410 660,420 720,340 C760,290 820,280 845,340 L845,560"/>
+      <path stroke="#7fe3d8" stroke-width="2" opacity=".5" transform="translate(-2,-1)"
+        d="M155,560 L155,330 C155,240 230,230 260,320 C300,450 360,470 410,400 C460,330 500,270 560,340 C610,410 660,420 720,340 C760,290 820,280 845,340 L845,560"/>
+    </g>
+    <g id="beadsTeal"></g>
+    <g id="beadsRed"></g>
+
+    <rect x="100" y="555" width="75" height="225" rx="5" fill="url(#woodSide)"/>
+    <rect x="825" y="555" width="75" height="225" rx="5" fill="url(#woodSide)"/>
+    <circle cx="120" cy="566" r="6" fill="#222"/>
+    <circle cx="155" cy="566" r="6" fill="#222"/>
+    <circle cx="880" cy="566" r="6" fill="#222"/>
+    <circle cx="845" cy="566" r="6" fill="#222"/>
+
+    <rect x="175" y="744" width="650" height="16" rx="8" fill="url(#rod)"/>
+    <g id="spotsFront"></g>
+    <g id="blocksFront"></g>
+
+    <!-- whichever block is being carried goes here so it floats above everything -->
+    <g id="carryLayer"></g>
+
+    <g id="tag" visibility="hidden">
+      <rect x="-34" y="-62" width="68" height="26" rx="6" fill="#0b0b0d" stroke="#3a3a44"/>
+      <text x="0" y="-44" text-anchor="middle" font-size="15" fill="#e6e4e1"
+        font-family="JetBrains Mono, monospace"></text>
+    </g>
+  </svg>
+
+  <div class="info">
+    <div class="swatch" id="infoSwatch"></div>
+    <div class="info-text" id="infoText"><span class="k">select a piece</span></div>
+    <div class="info-ctrl">
+      <button class="btn" id="prevBtn" title="−1 (←)" hidden>‹</button>
+      <button class="btn" id="nextBtn" title="+1 (→)" hidden>›</button>
+      <button class="btn" id="turnBtn" title="Turn (R)" hidden>Turn</button>
+    </div>
   </div>
-</body>
-</html>`;
 
-const NOT_HERE_HTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>drsp1cy</title>
-<meta name="robots" content="noindex"></head>
-<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0b0d;color:#55535b;font-family:system-ui,sans-serif">
-<p>Nothing here. <a href="${SITE}/playtime/" style="color:#8b8890">Go play.</a></p></body></html>`;
+  <p class="legend">Drag beads along the wires · drag blocks to any spot · tap a block to turn it · arrow keys fine-tune a bead</p>
+  <p id="readout"></p>
 
+  <div class="check">
+    <button id="checkBtn">Check my work!</button>
+    <div id="checkMsg"></div>
+  </div>
+
+  <section id="solution">
+    <h2>Solution helper</h2>
+    <p>Arrange the toy, then copy this into the Worker's <code>SOLUTION</code> secret.
+       Delete any part that shouldn't count.</p>
+    <textarea id="solOut" rows="10" readonly></textarea>
+    <button class="btn" id="solCopy">Copy</button>
+  </section>
+</main>
+
+<footer>drsp1cy · playtime</footer>
+
+<script>
 /* ================================================================= */
+const API = "https://door.drsp1cy.com";
 
-export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
-    const cors = {
-      "Access-Control-Allow-Origin": SITE,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400",
-      "Vary": "Origin"
-    };
-
-    try {
-      if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-
-      if (url.pathname === "/check" && req.method === "POST") return await check(req, env, url, cors);
-
-      if (url.pathname === "/enter" && req.method === "GET") {
-        const t = url.searchParams.get("t") || "";
-        if (await verify(t, "enter", env)) {
-          const exp = now() + PASS_DAYS * 86400;
-          const pass = await sign("pass", exp, env);
-          return new Response(null, {
-            status: 302,
-            headers: {
-              "Location": "/",
-              "Set-Cookie": `pass=${pass}; Max-Age=${PASS_DAYS * 86400}; Path=/; Secure; HttpOnly; SameSite=Lax`,
-              "Cache-Control": "no-store"
-            }
-          });
-        }
-        return page(NOT_HERE_HTML, 404);
-      }
-
-      if (url.pathname === "/" && req.method === "GET") {
-        const pass = getCookie(req, "pass");
-        if (pass && await verify(pass, "pass", env)) return page(VAULT_HTML, 200);
-        return page(NOT_HERE_HTML, 404);
-      }
-
-      return page(NOT_HERE_HTML, 404);
-    } catch (e) {
-      return json({ ok: false, error: "server" }, 500, cors);
-    }
-  }
+/* wires: number of stops and number shown for stop 0 */
+const WIRES = {
+  teal: { stops: 365, shownFrom: 0, code: "T" },
+  red:  { stops: 127, shownFrom: 0, code: "R" }
 };
 
-/* ---------- checking ---------- */
-async function check(req, env, url, cors) {
-  if (req.headers.get("Origin") !== SITE) return json({ ok: false }, 403, cors);
+const BEADS = {
+  teal: [
+    { c: "#8a5cc7" },
+    { c: "#f4f4f4", g: "◕", dark: true },
+    { c: "#2aa3c9" },
+    { c: "#f2cf2c", g: "✦", dark: true },
+    { c: "#9bd13c" },
+    { c: "#5b6b8c", g: "☾" },
+    { c: "#d8352c" }
+  ],
+  red: [
+    { c: "#f08a3c", g: "☻" },
+    { c: "#c2369a" },
+    { c: "#8c2b25" },
+    { c: "#4fb548", g: "◉" },
+    { c: "#f5a3c7", g: "✿", dark: true },
+    { c: "#f2cf2c" },
+    { c: "#2a6fd6" }
+  ]
+};
 
-  // attempt limit (only if the KV namespace is bound)
-  if (env.ATTEMPTS) {
-    const ip = req.headers.get("CF-Connecting-IP") || "unknown";
-    const bucket = Math.floor(now() / WINDOW_SECONDS);
-    const key = `rl:${ip}:${bucket}`;
-    const count = parseInt(await env.ATTEMPTS.get(key) || "0", 10);
-    if (count >= MAX_ATTEMPTS) {
-      const retryAfter = (bucket + 1) * WINDOW_SECONDS - now();
-      return json({ ok: false, retryAfter }, 429, { ...cors, "Retry-After": String(retryAfter) });
-    }
-    await env.ATTEMPTS.put(key, String(count + 1), { expirationTtl: WINDOW_SECONDS + 60 });
+/* blocks */
+const SPOTS_PER_ROD = 5;
+const SHAPES  = ["▲", "■", "●", "◆", "★", "⬟", "⬢", "✚", "☾", "♥"];
+const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+const MARKS   = ["☉", "☽", "☿", "♀", "♁", "♂", "♃", "♄", "♅", "♆"];
+const BLOCK_COLORS = ["#e2445c", "#f07f2e", "#f2c12c", "#57b947", "#2bb3a8",
+                      "#2c8fd6", "#3c5fc9", "#7a52c7", "#c24fb0", "#8a6a4a"];
+const blockFaces = i => [String(i + 1), SHAPES[i], LETTERS[i], MARKS[i]];
+const BLOCK_COUNT = 10;
+
+/* ================================================================= */
+const START = () => ({
+  teal: [292, 304, 316, 328, 340, 352, 364],
+  red:  [0, 2, 4, 6, 8, 10, 12],
+  blocks: {
+    spot: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    face: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   }
+});
 
-  const raw = await req.text();
-  if (raw.length > 4096) return json({ ok: false }, 413, cors);
-  let answer;
-  try { answer = JSON.parse(raw); } catch { return json({ ok: false }, 400, cors); }
+let state = load() || START();
+let selected = null;
 
-  const solution = JSON.parse(env.SOLUTION);
-  if (!matches(solution, answer)) return json({ ok: false }, 200, cors);
-
-  const enter = await sign("enter", now() + 300, env); // valid for 5 minutes
-  return json({ ok: true, url: `${url.origin}/enter?t=${encodeURIComponent(enter)}` }, 200, cors);
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem("playtime-v3"));
+    if (s && s.teal?.length === 7 && s.red?.length === 7 && s.blocks?.spot?.length === BLOCK_COUNT
+        && s.teal.every(v => v >= 0 && v < WIRES.teal.stops)
+        && s.red.every(v => v >= 0 && v < WIRES.red.stops)) return s;
+  } catch (e) {}
+  return null;
+}
+function save() {
+  try { localStorage.setItem("playtime-v3", JSON.stringify(state)); } catch (e) {}
+  updateReadout();
 }
 
-/* Only what's in SOLUTION is checked. Leave a part out and it's ignored. */
-function matches(sol, ans) {
-  if (Array.isArray(sol)) {
-    return Array.isArray(ans) && ans.length === sol.length && sol.every((v, i) => matches(v, ans[i]));
+/* ================================================================= */
+const svg = document.getElementById("toy");
+const NS = "http://www.w3.org/2000/svg";
+
+function stopPoints(path, n) {
+  const L = path.getTotalLength();
+  const a = 30, b = L - 30;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const p = path.getPointAtLength(a + (b - a) * i / (n - 1));
+    pts.push({ x: p.x, y: p.y });
   }
-  if (sol && typeof sol === "object") {
-    return ans && typeof ans === "object" && Object.keys(sol).every(k => matches(sol[k], ans[k]));
+  return pts;
+}
+WIRES.teal.points = stopPoints(document.getElementById("wireTeal"), WIRES.teal.stops);
+WIRES.red.points  = stopPoints(document.getElementById("wireRed"),  WIRES.red.stops);
+WIRES.teal.layer = document.getElementById("beadsTeal");
+WIRES.red.layer  = document.getElementById("beadsRed");
+
+const shown = (wire, v) => v + WIRES[wire].shownFrom;
+
+function svgPoint(e) {
+  const p = svg.createSVGPoint();
+  p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+/* block spots: 0..4 on the back rod, 5..9 on the front rod */
+const BLOCK = 54;
+const ROD_X0 = 175, ROD_W = 650;
+const RODS = [
+  { y: 651 - BLOCK / 2 - 4, blocks: document.getElementById("blocksBack"),  spots: document.getElementById("spotsBack"),  pegY: 651 },
+  { y: 752 - BLOCK / 2 - 4, blocks: document.getElementById("blocksFront"), spots: document.getElementById("spotsFront"), pegY: 752 }
+];
+const SPOTS = [];
+RODS.forEach((r, ri) => {
+  for (let k = 0; k < SPOTS_PER_ROD; k++) {
+    const cx = ROD_X0 + (k + .5) * ROD_W / SPOTS_PER_ROD;
+    SPOTS.push({ x: cx - BLOCK / 2, y: r.y, cx, cy: r.y + BLOCK / 2, rod: ri });
+    const peg = document.createElementNS(NS, "rect");
+    peg.setAttribute("class", "spot");
+    peg.setAttribute("x", cx - BLOCK / 2 - 2);
+    peg.setAttribute("y", r.y - 2);
+    peg.setAttribute("width", BLOCK + 4);
+    peg.setAttribute("height", BLOCK + 8);
+    peg.setAttribute("rx", 8);
+    peg.setAttribute("fill", "none");
+    peg.setAttribute("stroke", "#3a3a44");
+    peg.setAttribute("stroke-dasharray", "3 5");
+    r.spots.appendChild(peg);
   }
-  return sol === ans;
-}
+});
 
-/* ---------- signed passes ---------- */
-const now = () => Math.floor(Date.now() / 1000);
+/* ================================================================= */
+const beadEls = { teal: [], red: [] };
 
-async function hmac(env, msg) {
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(env.TOKEN_SECRET),
-    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-async function sign(kind, exp, env) {
-  return `${exp}.${await hmac(env, `${kind}:${exp}`)}`;
-}
-
-async function verify(token, kind, env) {
-  const [expStr, sig] = token.split(".");
-  const exp = parseInt(expStr, 10);
-  if (!exp || !sig || exp < now()) return false;
-  const expected = await hmac(env, `${kind}:${exp}`);
-  if (expected.length !== sig.length) return false;
-  let diff = 0;
-  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
-}
-
-/* ---------- helpers ---------- */
-function getCookie(req, name) {
-  const c = req.headers.get("Cookie") || "";
-  const m = c.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-  return m ? m[1] : null;
-}
-
-function json(obj, status, headers = {}) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers }
+function buildBeads(wire) {
+  BEADS[wire].forEach((b, i) => {
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "bead");
+    const body = b.g
+      ? `<rect x="-23" y="-20" width="46" height="40" rx="13" fill="${b.c}"/>
+         <rect x="-23" y="-20" width="46" height="40" rx="13" fill="url(#shine)"/>
+         <text x="0" y="8" text-anchor="middle" font-size="22" font-weight="800"
+           fill="${b.dark ? '#2a2a33' : '#fff'}" font-family="Inter, sans-serif">${b.g}</text>`
+      : `<circle r="21" fill="${b.c}"/><circle r="21" fill="url(#shine)"/>`;
+    g.innerHTML = `<circle class="sel-ring" r="29" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
+                   <g filter="url(#shadow)">${body}</g>`;
+    WIRES[wire].layer.appendChild(g);
+    beadEls[wire].push(g);
+    dragBead(g, wire, i);
   });
 }
 
-function page(html, status) {
-  return new Response(html, {
-    status,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Robots-Tag": "noindex",
-      "X-Frame-Options": "DENY",
-      "Referrer-Policy": "no-referrer"
+function placeBead(wire, i) {
+  const p = WIRES[wire].points[state[wire][i]];
+  beadEls[wire][i].setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
+}
+function placeAllBeads() {
+  for (const w of ["teal", "red"]) state[w].forEach((_, i) => placeBead(w, i));
+}
+
+function dragBead(el, wire, i) {
+  let active = false;
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    select({ kind: "bead", wire, i });
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+    active = true;
+  });
+  el.addEventListener("pointermove", e => {
+    if (!active) return;
+    const p = svgPoint(e);
+    const pts = WIRES[wire].points;
+    const d = s => (pts[s].x - p.x) ** 2 + (pts[s].y - p.y) ** 2;
+    let v = state[wire][i];
+    for (let guard = 0; guard < 2000; guard++) {
+      if (v > 0 && d(v - 1) < d(v)) v--;
+      else if (v < pts.length - 1 && d(v + 1) < d(v)) v++;
+      else break;
+    }
+    state[wire][i] = v;
+    placeBead(wire, i);
+    refreshInfo();
+  });
+  const end = () => {
+    if (!active) return;
+    active = false;
+    el.classList.remove("dragging");
+    save();
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+}
+
+/* ================================================================= */
+const blockEls = [];
+
+function buildBlocks() {
+  for (let i = 0; i < BLOCK_COUNT; i++) {
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "block");
+    g.innerHTML = `
+      <rect class="sel-ring" x="-5" y="-5" width="${BLOCK + 10}" height="${BLOCK + 14}" rx="9"
+        fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
+      <g filter="url(#shadow)">
+        <rect x="0" y="4" width="${BLOCK}" height="${BLOCK}" rx="6" fill="#000" opacity=".35"/>
+        <g class="block-face">
+          <rect width="${BLOCK}" height="${BLOCK}" rx="6" fill="${BLOCK_COLORS[i]}"/>
+          <rect width="${BLOCK}" height="${BLOCK}" rx="6" fill="url(#shine)" opacity=".6"/>
+          <text x="${BLOCK / 2}" y="${BLOCK / 2 + 10}" text-anchor="middle" font-size="28" font-weight="800"
+            fill="#fff" font-family="Inter, sans-serif"></text>
+        </g>
+      </g>`;
+    blockEls.push(g);
+    dragBlock(g, i);
+  }
+}
+
+function setBlockPos(el, x, y) {
+  el.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+function placeBlocks(spinIdx = -1) {
+  blockEls.forEach((el, i) => {
+    const s = SPOTS[state.blocks.spot[i]];
+    const layer = RODS[s.rod].blocks;
+    if (el.parentNode !== layer) layer.appendChild(el);
+    setBlockPos(el, s.x, s.y);
+    const txt = el.querySelector("text");
+    const face = blockFaces(i)[state.blocks.face[i]];
+    if (i === spinIdx) {
+      const f = el.querySelector(".block-face");
+      f.classList.remove("spin"); void f.getBBox(); f.classList.add("spin");
+      setTimeout(() => { txt.textContent = face; }, 130);
+    } else {
+      txt.textContent = face;
     }
   });
 }
+
+function turnBlock(i) {
+  state.blocks.face[i] = (state.blocks.face[i] + 1) % 4;
+  placeBlocks(i);
+  save();
+  setTimeout(refreshInfo, 140);
+}
+
+function dragBlock(el, i) {
+  let start = null, grab = null, moved = false;
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    select({ kind: "block", i });
+    document.getElementById("carryLayer").appendChild(el);
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+    const p = svgPoint(e);
+    const s = SPOTS[state.blocks.spot[i]];
+    start = p;
+    grab = { dx: p.x - s.x, dy: p.y - s.y };
+    moved = false;
+  });
+  el.addEventListener("pointermove", e => {
+    if (!start) return;
+    const p = svgPoint(e);
+    if (!moved && Math.hypot(p.x - start.x, p.y - start.y) > 8) moved = true;
+    if (!moved) return;
+    setBlockPos(el, p.x - grab.dx, p.y - grab.dy);
+  });
+  const end = e => {
+    if (!start) return;
+    el.classList.remove("dragging");
+    if (moved) {
+      const p = svgPoint(e);
+      const cx = p.x - grab.dx + BLOCK / 2, cy = p.y - grab.dy + BLOCK / 2;
+      let best = 0, bd = Infinity;
+      SPOTS.forEach((s, k) => {
+        const d = (s.cx - cx) ** 2 + (s.cy - cy) ** 2;
+        if (d < bd) { bd = d; best = k; }
+      });
+      const from = state.blocks.spot[i];
+      const other = state.blocks.spot.indexOf(best);
+      if (other !== -1 && other !== i) state.blocks.spot[other] = from; // swap
+      state.blocks.spot[i] = best;
+      placeBlocks();
+      save();
+      refreshInfo();
+    } else {
+      placeBlocks();
+      turnBlock(i);
+    }
+    start = null;
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", () => {
+    if (!start) return;
+    start = null;
+    el.classList.remove("dragging");
+    placeBlocks();
+  });
+}
+
+/* ================================================================= */
+const tag = document.getElementById("tag");
+const infoSwatch = document.getElementById("infoSwatch");
+const infoText = document.getElementById("infoText");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const turnBtn = document.getElementById("turnBtn");
+
+function selEl(s) { return s.kind === "bead" ? beadEls[s.wire][s.i] : blockEls[s.i]; }
+
+function select(s) {
+  if (selected) selEl(selected).classList.remove("selected");
+  selected = s;
+  const el = selEl(s);
+  el.classList.add("selected");
+  if (s.kind === "bead") el.parentNode.appendChild(el);
+  refreshInfo();
+}
+
+function refreshInfo() {
+  if (!selected) return;
+  if (selected.kind === "bead") {
+    const { wire, i } = selected;
+    const b = BEADS[wire][i];
+    const val = shown(wire, state[wire][i]);
+    const p = WIRES[wire].points[state[wire][i]];
+    tag.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
+    tag.querySelector("text").textContent = val;
+    tag.setAttribute("visibility", "visible");
+
+    infoSwatch.className = "swatch" + (b.g ? " square" : "");
+    infoSwatch.style.background = b.c;
+    infoSwatch.style.color = b.dark ? "#2a2a33" : "#fff";
+    infoSwatch.textContent = b.g || "";
+    infoText.innerHTML = `<span class="k">${WIRES[wire].code}${i + 1} =</span> ${val}`;
+    prevBtn.hidden = nextBtn.hidden = false;
+    turnBtn.hidden = true;
+  } else {
+    const { i } = selected;
+    const face = state.blocks.face[i];
+    tag.setAttribute("visibility", "hidden");
+    infoSwatch.className = "swatch square";
+    infoSwatch.style.background = BLOCK_COLORS[i];
+    infoSwatch.style.color = "#fff";
+    infoSwatch.textContent = blockFaces(i)[face];
+    infoText.innerHTML = `<span class="k">B${i + 1} =</span> spot ${state.blocks.spot[i] + 1} <span class="k">·</span> face ${face + 1}`;
+    prevBtn.hidden = nextBtn.hidden = true;
+    turnBtn.hidden = false;
+  }
+}
+
+function nudge(dir, big = false) {
+  if (selected?.kind !== "bead") return;
+  const { wire, i } = selected;
+  const n = WIRES[wire].stops;
+  state[wire][i] = Math.max(0, Math.min(n - 1, state[wire][i] + dir * (big ? 10 : 1)));
+  placeBead(wire, i);
+  refreshInfo();
+  save();
+}
+
+prevBtn.onclick = () => nudge(-1);
+nextBtn.onclick = () => nudge(1);
+turnBtn.onclick = () => selected?.kind === "block" && turnBlock(selected.i);
+
+window.addEventListener("keydown", e => {
+  if (!selected || e.target.closest("textarea, input")) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); nudge(-1, e.shiftKey); }
+  if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); nudge(1, e.shiftKey); }
+  if ((e.key === "r" || e.key === "R" || e.key === "Enter") && selected.kind === "block") turnBlock(selected.i);
+});
+
+/* full arrangement, always visible */
+function updateReadout() {
+  const t = state.teal.map(v => shown("teal", v)).join(" ");
+  const r = state.red.map(v => shown("red", v)).join(" ");
+  const b = state.blocks.spot.map((s, i) => `${s + 1}/${state.blocks.face[i] + 1}`).join(" ");
+  document.getElementById("readout").textContent = `T[ ${t} ]  R[ ${r} ]  B[ ${b} ]`;
+  if (location.hash === "#solution") document.getElementById("solOut").value = JSON.stringify(state, null, 2);
+}
+
+/* ================================================================= */
+const checkBtn = document.getElementById("checkBtn");
+const checkMsg = document.getElementById("checkMsg");
+
+checkBtn.onclick = async () => {
+  checkBtn.disabled = true;
+  checkMsg.className = "";
+  checkMsg.textContent = "Checking…";
+  try {
+    const res = await fetch(`${API}/check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state)
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 429) {
+      const mins = Math.ceil((data.retryAfter || 3600) / 60);
+      checkMsg.textContent = `Too many attempts. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`;
+    } else if (data.ok && data.url) {
+      checkMsg.className = "good";
+      checkMsg.textContent = "Everything is where it belongs.";
+      setTimeout(() => { location.href = data.url; }, 1400);
+      return;
+    } else if (res.ok) {
+      checkMsg.textContent = "Not quite.";
+      svg.classList.remove("wrong"); void svg.getBBox(); svg.classList.add("wrong");
+    } else {
+      checkMsg.textContent = "Something went wrong. Try again in a bit.";
+    }
+  } catch (e) {
+    checkMsg.textContent = "Couldn't reach the checker. Try again in a bit.";
+  }
+  checkBtn.disabled = false;
+};
+
+/* ================================================================= */
+if (location.hash === "#solution") {
+  document.getElementById("solution").style.display = "block";
+  document.getElementById("solCopy").onclick = () => {
+    const t = document.getElementById("solOut");
+    t.select();
+    navigator.clipboard?.writeText(t.value);
+  };
+}
+
+buildBeads("teal"); buildBeads("red");
+buildBlocks();
+placeAllBeads();
+placeBlocks();
+updateReadout();
+
+document.getElementById("resetBtn").onclick = () => {
+  state = START();
+  placeAllBeads();
+  placeBlocks();
+  refreshInfo();
+  save();
+};
+</script>
+</body>
+</html>
