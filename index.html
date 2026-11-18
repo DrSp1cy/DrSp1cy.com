@@ -4,422 +4,300 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>drsp1cy</title>
-<meta name="description" content="Something is being built here.">
-<meta name="theme-color" content="#050506">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='30' fill='none' stroke='%23b3262e' stroke-width='6'/><circle cx='50' cy='50' r='6' fill='%23b3262e'/></svg>">
+<meta name="description" content="Projects, experiments, and bad ideas.">
+<meta name="theme-color" content="#0b0b0d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b0b0d'/><circle cx='50' cy='50' r='18' fill='none' stroke='%23c2414b' stroke-width='8'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #050506;
-    --text: #cfc8bd;
-    --dim: #5d5852;
-    --faint: #2a2725;
-    --line: #1c1a19;
-    --blood: #b3262e;
-    --glow: rgba(179, 38, 46, .35);
-    --x: 50vw;
-    --y: 40vh;
+    --bg: #0b0b0d;
+    --surface: #131317;
+    --surface-2: #1a1a1f;
+    --border: #24242b;
+    --text: #e6e4e1;
+    --muted: #8b8890;
+    --faint: #55535b;
+    --accent: #c2414b;
+    --accent-soft: rgba(194, 65, 75, .12);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { background: var(--bg); }
 
   body {
+    background: var(--bg);
     color: var(--text);
-    font-family: 'IBM Plex Mono', ui-monospace, monospace;
-    font-weight: 300;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
     min-height: 100vh;
-    overflow-x: hidden;
-    cursor: crosshair;
-  }
-
-  /* ---------- atmosphere ---------- */
-  .fog {
-    position: fixed; inset: -20%;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(ellipse 40% 30% at 30% 40%, rgba(120, 110, 100, .06), transparent 70%),
-      radial-gradient(ellipse 35% 25% at 70% 65%, rgba(179, 38, 46, .04), transparent 70%);
-    animation: drift 40s ease-in-out infinite alternate;
-  }
-  @keyframes drift {
-    from { transform: translate(-4%, -2%) scale(1); }
-    to   { transform: translate(4%, 3%) scale(1.1); }
-  }
-
-  .grain {
-    position: fixed; inset: 0;
-    pointer-events: none;
-    z-index: 90;
-    opacity: .07;
-    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  }
-
-  /* the dark that follows you */
-  .dark {
-    position: fixed; inset: 0;
-    pointer-events: none;
-    z-index: 80;
-    background: radial-gradient(circle 340px at var(--x) var(--y),
-      transparent 0%, rgba(5,5,6,.55) 55%, rgba(5,5,6,.9) 100%);
-    transition: opacity 1.5s;
-  }
-  @media (hover: none) { .dark { opacity: .35; } }
-
-  /* ---------- layout ---------- */
-  .wrap {
-    position: relative;
-    z-index: 10;
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 14vh 28px 80px;
-  }
-
-  header { text-align: center; margin-bottom: 14vh; }
-
-  .eye {
-    width: 54px; height: 54px;
-    margin: 0 auto 36px;
-    border: 1px solid var(--blood);
-    border-radius: 50%;
-    display: grid; place-items: center;
-    box-shadow: 0 0 30px var(--glow);
-    animation: breathe 6s ease-in-out infinite;
-  }
-  .eye::after {
-    content: "";
-    width: 8px; height: 8px;
-    background: var(--blood);
-    border-radius: 50%;
-    transform: translate(var(--px, 0), var(--py, 0));
-    transition: transform .3s ease-out;
-  }
-  @keyframes breathe {
-    50% { box-shadow: 0 0 60px var(--glow); }
-  }
-
-  h1 {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 300;
-    font-size: clamp(54px, 12vw, 128px);
-    letter-spacing: .35em;
-    margin-right: -.35em; /* balances the letter-spacing */
-    line-height: 1;
-    color: var(--text);
-    position: relative;
-    user-select: none;
-  }
-  h1 .glitch { display: inline-block; }
-  h1.flicker { animation: flicker .4s steps(1); }
-  @keyframes flicker {
-    0%   { opacity: 1; }
-    15%  { opacity: .2; transform: translateX(3px); }
-    30%  { opacity: 1; transform: none; }
-    45%  { opacity: .4; color: var(--blood); }
-    60%  { opacity: 1; color: var(--text); }
-  }
-
-  .whisper {
-    margin-top: 28px;
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: 20px;
-    color: var(--dim);
-    min-height: 1.4em;
-  }
-  .caret {
-    display: inline-block;
-    width: 1px; height: 1em;
-    background: var(--blood);
-    vertical-align: -2px;
-    margin-left: 3px;
-    animation: blink 1s steps(2) infinite;
-  }
-  @keyframes blink { 50% { opacity: 0; } }
-
-  /* ---------- doors ---------- */
-  .label {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 11px;
-    letter-spacing: .4em;
-    color: var(--dim);
-    text-transform: uppercase;
-    margin-bottom: 28px;
-  }
-  .label::before, .label::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--faint), transparent);
-  }
-
-  .doors {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-  }
-
-  .door {
-    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    min-height: 220px;
-    padding: 28px 24px;
-    background: var(--bg);
-    color: inherit;
-    text-decoration: none;
-    overflow: hidden;
-    transition: background .4s;
   }
 
-  .sigil {
-    font-size: 26px;
-    color: var(--faint);
-    transition: color .4s, text-shadow .4s;
-    line-height: 1;
+  /* faint red glow at the top of the page */
+  body::before {
+    content: "";
+    position: fixed;
+    top: -300px; left: 50%;
+    width: 900px; height: 600px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse, rgba(194, 65, 75, .10), transparent 65%);
+    pointer-events: none;
+    z-index: 0;
   }
 
-  .door h2 {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 500;
-    font-size: 26px;
-    letter-spacing: .05em;
+  a { color: inherit; text-decoration: none; }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
   }
 
-  .door p {
+  /* ---------- nav ---------- */
+  nav {
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(11, 11, 13, .8);
+    backdrop-filter: blur(10px);
+  }
+  nav .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    letter-spacing: .02em;
+  }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 24px; font-size: 14px; color: var(--muted); }
+  .nav-links a:hover { color: var(--text); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 96px 0 72px; }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
-    line-height: 1.7;
-    color: var(--dim);
-    flex: 1;
+    color: var(--accent);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -.03em;
+    max-width: 680px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--muted);
+  }
+  .hero p {
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 17px;
+    max-width: 520px;
   }
 
-  .addr {
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: .05em;
+  /* ---------- projects ---------- */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-head h2 { font-size: 15px; font-weight: 500; }
+  .section-head span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--faint);
+  }
+
+  .projects {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 96px;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color .2s, background .2s, transform .2s;
+    min-height: 170px;
+  }
+  a.card:hover {
+    border-color: #3a2a2d;
+    background: var(--surface-2);
+    transform: translateY(-2px);
+  }
+
+  .card-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-
-  .state { font-size: 10px; letter-spacing: .3em; }
-
-  /* open doors */
-  a.door:hover { background: #0b0909; }
-  a.door:hover .sigil { color: var(--blood); text-shadow: 0 0 20px var(--glow); }
-  a.door .state { color: var(--blood); }
-  a.door::after {
-    content: "";
-    position: absolute;
-    left: 0; bottom: 0;
-    height: 1px; width: 0;
-    background: var(--blood);
-    box-shadow: 0 0 12px var(--blood);
-    transition: width .6s ease;
-  }
-  a.door:hover::after { width: 100%; }
-
-  /* sealed doors */
-  .door.sealed { cursor: not-allowed; }
-  .door.sealed h2 { color: var(--faint); letter-spacing: 0; }
-  .door.sealed .redact {
-    display: inline-block;
-    background: var(--faint);
-    height: .7em;
-    vertical-align: middle;
-    border-radius: 1px;
-  }
-  .door.sealed p { color: var(--faint); }
-  .door.sealed .state { color: var(--faint); }
-  .door.sealed .msg {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: 18px;
-    color: var(--dim);
-    opacity: 0;
-    transition: opacity .6s;
-    background: rgba(5,5,6,.6);
-  }
-  .door.sealed:hover .msg { opacity: 1; }
-
-  footer {
-    margin-top: 12vh;
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: .4em;
+  .path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
     color: var(--faint);
-    text-transform: uppercase;
+  }
+  a.card:hover .path { color: var(--accent); }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .badge.live { color: #7fd1a0; border-color: rgba(127, 209, 160, .25); background: rgba(127, 209, 160, .06); }
+  .badge.wip  { color: #e0b65a; border-color: rgba(224, 182, 90, .25); background: rgba(224, 182, 90, .06); }
+
+  .card h3 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .card p { font-size: 14px; color: var(--muted); flex: 1; }
+
+  .card .arrow {
+    font-size: 13px;
+    color: var(--faint);
+    transition: color .2s, transform .2s;
+  }
+  a.card:hover .arrow { color: var(--accent); transform: translateX(3px); }
+
+  /* empty slot */
+  .card.empty {
+    background: transparent;
+    border-style: dashed;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--faint);
+    font-size: 13px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    font-size: 13px;
+    color: var(--faint);
+  }
+  footer .container { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  @media (max-width: 560px) {
+    .hero { padding: 64px 0 48px; }
+    .nav-links { gap: 16px; }
   }
 </style>
 </head>
 <body>
 
-<div class="fog"></div>
-<div class="grain"></div>
-<div class="dark" id="dark"></div>
+<nav>
+  <div class="container">
+    <a href="/" class="logo">drsp<span>1</span>cy</a>
+    <div class="nav-links">
+      <a href="#projects">Projects</a>
+      <a href="#about">About</a>
+    </div>
+  </div>
+</nav>
 
-<div class="wrap">
-  <header>
-    <div class="eye" id="eye"></div>
-    <h1 id="title">DRSP1CY</h1>
-    <p class="whisper"><span id="whisper"></span><span class="caret"></span></p>
-  </header>
+<main class="container">
+  <section class="hero">
+    <div class="eyebrow">// projects &amp; experiments</div>
+    <h1>Things I built because I wanted to. <em>Not because anyone asked.</em></h1>
+    <p>A home for side projects, experiments, and ideas that probably should have stayed ideas.</p>
+  </section>
 
-  <div class="label" id="label">doors</div>
-  <main class="doors" id="doors"></main>
+  <section id="projects">
+    <div class="section-head">
+      <h2>Projects</h2>
+      <span id="count"></span>
+    </div>
+    <div class="projects" id="grid"></div>
+  </section>
+</main>
 
-  <footer>you were not here</footer>
-</div>
+<footer id="about">
+  <div class="container">
+    <span>© <span id="year"></span> drsp1cy</span>
+    <span>Built at odd hours.</span>
+  </div>
+</footer>
 
 <script>
-/* ==========================================================
-   DOORS — one entry per subdomain.
-   open: true  → clickable, links to https://<sub>.drsp1cy.com
-   open: false → sealed slot, name and address hidden
-   url:  optional, overrides the subdomain link
-   ========================================================== */
-const DOMAIN = "drsp1cy.com";
-
-const doors = [
-  { sub: "",       name: "Unnamed", desc: "", sigil: "◉", open: false },
-  { sub: "",       name: "Unnamed", desc: "", sigil: "△", open: false },
-  { sub: "",       name: "Unnamed", desc: "", sigil: "⌖", open: false },
-  { sub: "",       name: "Unnamed", desc: "", sigil: "◈", open: false },
-  { sub: "",       name: "Unnamed", desc: "", sigil: "☍", open: false },
-  { sub: "",       name: "Unnamed", desc: "", sigil: "⟁", open: false },
-  // Example of an open door:
-  // { sub: "void", name: "The Void", desc: "Stare into it.", sigil: "◉", open: true },
+/* =========================================================
+   PROJECTS — add one entry per page.
+   path:   the folder name, e.g. "thing" → drsp1cy.com/thing/
+   status: "live" | "wip" | "soon"
+   Set path to "" for a project that isn't linkable yet.
+   ========================================================= */
+const projects = [
+  {
+    name: "First Project",
+    path: "first",
+    desc: "Placeholder for the first page. Rename it once it exists.",
+    status: "soon"
+  },
 ];
 
-/* lines the header types out, one at a time */
-const whispers = [
-  "something is being built here.",
-  "not everything is ready to be seen.",
-  "the doors open when they open.",
-  "you can leave whenever you like."
-];
+/* how many dashed "coming soon" slots to show after the real projects */
+const EMPTY_SLOTS = 2;
+/* ========================================================= */
 
-const sealedMsgs = ["not yet.", "it isn't ready.", "come back later.", "sealed.", "don't."];
-/* ========================================================== */
+const grid = document.getElementById('grid');
+const labels = { live: "Live", wip: "In progress", soon: "Soon" };
 
-const grid = document.getElementById('doors');
-const openCount = doors.filter(d => d.open).length;
-document.getElementById('label').textContent =
-  `doors · ${openCount} of ${doors.length} open`;
-
-doors.forEach((d, i) => {
-  const href = d.url || (d.sub ? `https://${d.sub}.${DOMAIN}` : "");
-  const el = document.createElement(d.open && href ? 'a' : 'div');
-  el.className = 'door' + (d.open ? '' : ' sealed');
-  const num = String(i + 1).padStart(2, '0');
-
-  if (d.open) {
-    el.href = href;
-    el.innerHTML = `
-      <div class="sigil"></div>
-      <h2></h2>
-      <p></p>
-      <div class="addr"><span class="host"></span><span class="state">OPEN</span></div>`;
-    el.querySelector('.sigil').textContent = d.sigil || "◉";
-    el.querySelector('h2').textContent = d.name;
-    el.querySelector('p').textContent = d.desc;
-    el.querySelector('.host').textContent = d.url ? d.url.replace(/^https?:\/\//, '') : `${d.sub}.${DOMAIN}`;
-  } else {
-    const w = 60 + Math.random() * 90;
-    el.innerHTML = `
-      <div class="sigil"></div>
-      <h2><span class="redact" style="width:${w}px"></span></h2>
-      <p><span class="redact" style="width:90%"></span><br><span class="redact" style="width:60%"></span></p>
-      <div class="addr"><span>???.${DOMAIN}</span><span class="state">SEALED · ${num}</span></div>
-      <div class="msg"></div>`;
-    el.querySelector('.sigil').textContent = d.sigil || "◉";
-    el.addEventListener('mouseenter', () => {
-      el.querySelector('.msg').textContent = sealedMsgs[Math.floor(Math.random() * sealedMsgs.length)];
-    });
-  }
+projects.forEach(p => {
+  const linkable = p.path && p.status !== "soon";
+  const el = document.createElement(linkable ? 'a' : 'div');
+  el.className = 'card';
+  if (linkable) el.href = `/${p.path}/`;
+  el.innerHTML = `
+    <div class="card-top">
+      <span class="path"></span>
+      <span class="badge ${p.status}">${labels[p.status] || p.status}</span>
+    </div>
+    <h3></h3>
+    <p></p>
+    ${linkable ? '<span class="arrow">Open →</span>' : ''}`;
+  el.querySelector('.path').textContent = p.path ? `/${p.path}` : '/';
+  el.querySelector('h3').textContent = p.name;
+  el.querySelector('p').textContent = p.desc;
   grid.appendChild(el);
 });
 
-/* flashlight + eye tracking */
-const root = document.documentElement;
-const eye = document.getElementById('eye');
-window.addEventListener('pointermove', e => {
-  root.style.setProperty('--x', e.clientX + 'px');
-  root.style.setProperty('--y', e.clientY + 'px');
-  const r = eye.getBoundingClientRect();
-  const dx = e.clientX - (r.left + r.width / 2);
-  const dy = e.clientY - (r.top + r.height / 2);
-  const a = Math.atan2(dy, dx);
-  const m = Math.min(12, Math.hypot(dx, dy) / 30);
-  eye.style.setProperty('--px', Math.cos(a) * m + 'px');
-  eye.style.setProperty('--py', Math.sin(a) * m + 'px');
-});
-
-/* typed whispers */
-const wEl = document.getElementById('whisper');
-let wi = 0;
-function type(text, i = 0) {
-  if (i <= text.length) {
-    wEl.textContent = text.slice(0, i);
-    setTimeout(() => type(text, i + 1), 45 + Math.random() * 60);
-  } else {
-    setTimeout(erase, 3200);
-  }
+for (let i = 0; i < EMPTY_SLOTS; i++) {
+  const el = document.createElement('div');
+  el.className = 'card empty';
+  el.textContent = 'Something goes here eventually.';
+  grid.appendChild(el);
 }
-function erase() {
-  const t = wEl.textContent;
-  if (t.length) {
-    wEl.textContent = t.slice(0, -1);
-    setTimeout(erase, 22);
-  } else {
-    wi = (wi + 1) % whispers.length;
-    setTimeout(() => type(whispers[wi]), 700);
-  }
-}
-setTimeout(() => type(whispers[0]), 1200);
 
-/* random title flicker */
-const title = document.getElementById('title');
-function flicker() {
-  title.classList.remove('flicker');
-  void title.offsetWidth;
-  title.classList.add('flicker');
-  setTimeout(flicker, 6000 + Math.random() * 14000);
-}
-setTimeout(flicker, 5000);
-
-/* type the name anywhere and the lights go out for a moment */
-let buf = "";
-window.addEventListener('keydown', e => {
-  buf = (buf + e.key.toLowerCase()).slice(-7);
-  if (buf === "drsp1cy") {
-    const dark = document.getElementById('dark');
-    dark.style.transition = 'none';
-    dark.style.background = '#000';
-    setTimeout(() => {
-      dark.style.transition = '';
-      dark.style.background = '';
-      wEl.textContent = "";
-      wEl.textContent = "we see you.";
-    }, 1400);
-  }
-});
+document.getElementById('count').textContent =
+  `${projects.length} project${projects.length === 1 ? '' : 's'}`;
+document.getElementById('year').textContent = new Date().getFullYear();
 </script>
 </body>
 </html>
