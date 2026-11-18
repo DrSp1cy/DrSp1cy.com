@@ -323,6 +323,128 @@
 /* ================================================================= */
 const API = "https://door.drsp1cy.com";
 
+/* ================================================================= */
+/* SOUND: effects are synthesized; music is background.mp3 next to this page */
+const MUSIC_VOLUME = 0.35;
+const sfx = (() => {
+  let ctx = null, master = null, muted = false, last = 0;
+  const music = new Audio("background.mp3");
+  music.loop = true;
+  music.volume = 0;
+  music.preload = "auto";
+  let musicStarted = false, fadeTimer = null;
+
+  function fadeMusic(to, ms) {
+    clearInterval(fadeTimer);
+    const from = music.volume, t0 = performance.now();
+    fadeTimer = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      music.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+      if (k === 1) clearInterval(fadeTimer);
+    }, 50);
+  }
+
+  function unlock() {
+    if (!ctx) {
+      try {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        master = ctx.createGain();
+        master.gain.value = muted ? 0 : 0.9;
+        master.connect(ctx.destination);
+      } catch (e) {}
+    }
+    if (ctx && ctx.state === "suspended") ctx.resume();
+    if (!musicStarted) {
+      musicStarted = true;
+      music.play().then(() => fadeMusic(muted ? 0 : MUSIC_VOLUME, 3000)).catch(() => { musicStarted = false; });
+    }
+  }
+  ["pointerdown", "keydown"].forEach(ev => window.addEventListener(ev, unlock, { capture: true }));
+
+  document.addEventListener("visibilitychange", () => {
+    if (!musicStarted) return;
+    if (document.hidden) music.pause(); else music.play().catch(() => {});
+  });
+
+  /* building blocks */
+  function noise(dur) {
+    const b = ctx.createBuffer(1, Math.max(1, ctx.sampleRate * dur), ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = b;
+    return src;
+  }
+  function env(g, t, peak, dur) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  }
+  /* a wooden knock: filtered noise + a quick dropping tone */
+  function knock(freq, vol = 0.3, dur = 0.08) {
+    if (!ctx || muted) return;
+    const t = ctx.currentTime;
+    const n = noise(dur), bp = ctx.createBiquadFilter(), ng = ctx.createGain();
+    bp.type = "bandpass"; bp.frequency.value = freq * 2.2; bp.Q.value = 6;
+    env(ng, t, vol, dur * 0.7);
+    n.connect(bp).connect(ng).connect(master);
+    n.start(t); n.stop(t + dur);
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.6, t + dur);
+    env(og, t, vol * 0.8, dur);
+    o.connect(og).connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function tone(freq, start, dur, vol, type = "sine") {
+    const t = ctx.currentTime + start;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  const PITCH = { teal: 1500, red: 1150, cube: 700 };
+
+  return {
+    /* a bead or cube passing a stop; throttled so fast drags purr instead of buzz */
+    tick(kind) {
+      if (!ctx || muted) return;
+      const now = performance.now();
+      if (now - last < 28) return;
+      last = now;
+      knock(PITCH[kind] * (0.94 + Math.random() * 0.12), 0.07, 0.03);
+    },
+    pick()  { knock(520, 0.22, 0.07); },
+    drop()  { knock(380, 0.28, 0.1); },
+    turn()  { knock(620, 0.25, 0.06); setTimeout(() => knock(460, 0.3, 0.09), 90); },
+    press() { knock(300, 0.18, 0.06); },
+    wrong() {
+      if (!ctx || muted) return;
+      tone(140, 0, 0.22, 0.25, "triangle");
+      tone(104, 0.16, 0.32, 0.25, "triangle");
+    },
+    cool()  { if (ctx && !muted) tone(220, 0, 0.18, 0.12, "sine"); },
+    win() {
+      if (!ctx || muted) return;
+      [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, k) => {
+        tone(f, k * 0.11, 1.6, 0.16, "sine");
+        tone(f * 2, k * 0.11, 0.9, 0.04, "sine");
+      });
+      fadeMusic(0, 1400);
+    },
+    toggleMute() {
+      muted = !muted;
+      if (master) master.gain.value = muted ? 0 : 0.9;
+      fadeMusic(muted ? 0 : MUSIC_VOLUME, 600);
+    }
+  };
+})();
+
 const WIRES = {
   teal: { stops: 365, shownFrom: 1 },
   red:  { stops: 127, shownFrom: 0 }
@@ -468,6 +590,7 @@ function dragBead(el, wire, i) {
     e.preventDefault();
     e.stopPropagation();
     select({ kind: "bead", wire, i });
+    sfx.pick();
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
     active = true;
@@ -478,12 +601,14 @@ function dragBead(el, wire, i) {
     const pts = WIRES[wire].points;
     const d = s => (pts[s].x - p.x) ** 2 + (pts[s].y - p.y) ** 2;
     let v = state[wire][i];
+    const before = v;
     for (let guard = 0; guard < 2000; guard++) {
       if (v > 0 && d(v - 1) < d(v)) v--;
       else if (v < pts.length - 1 && d(v + 1) < d(v)) v++;
       else break;
     }
     state[wire][i] = v;
+    if (v !== before) sfx.tick(wire);
     placeBead(wire, i);
     refreshTag();
   });
@@ -491,6 +616,7 @@ function dragBead(el, wire, i) {
     if (!active) return;
     active = false;
     el.classList.remove("dragging");
+    sfx.drop();
     save();
   };
   el.addEventListener("pointerup", end);
@@ -541,6 +667,7 @@ function placeAllCubes() { CUBES.forEach((_, i) => placeCube(i)); }
 
 function turnCube(i) {
   state.cubes.face[i] = (state.cubes.face[i] + 1) % 4;
+  sfx.turn();
   placeCube(i, true);
   save();
 }
@@ -551,6 +678,7 @@ function dragCube(el, i) {
     e.preventDefault();
     e.stopPropagation();
     select({ kind: "cube", i });
+    sfx.pick();
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
     startX = svgPoint(e).x;
@@ -563,8 +691,9 @@ function dragCube(el, i) {
     if (Math.abs(dx) > 6) moved = true;
     if (!moved) return;
     const n = CUBES[i].stops;
-    const v = Math.round((startLeft + dx - ROD_X0) / TRACK * (n - 1));
-    state.cubes.pos[i] = Math.max(0, Math.min(n - 1, v));
+    const v = Math.max(0, Math.min(n - 1, Math.round((startLeft + dx - ROD_X0) / TRACK * (n - 1))));
+    if (v !== state.cubes.pos[i]) sfx.tick("cube");
+    state.cubes.pos[i] = v;
     placeCube(i);
     refreshTag();
   });
@@ -573,7 +702,7 @@ function dragCube(el, i) {
     startX = null;
     el.classList.remove("dragging");
     if (!moved) turnCube(i);
-    else save();
+    else { sfx.drop(); save(); }
   };
   el.addEventListener("pointerup", end);
   el.addEventListener("pointercancel", () => { startX = null; el.classList.remove("dragging"); });
@@ -628,6 +757,7 @@ function nudge(dir, big = false) {
     state.cubes.pos[i] = Math.max(0, Math.min(CUBES[i].stops - 1, state.cubes.pos[i] + step));
     placeCube(i);
   }
+  sfx.tick(selected.kind === "bead" ? selected.wire : "cube");
   refreshTag();
   save();
 }
@@ -653,6 +783,7 @@ svg.addEventListener("pointerdown", e => {
 });
 
 window.addEventListener("keydown", e => {
+  if ((e.key === "m" || e.key === "M") && !e.target.closest("textarea, input")) { sfx.toggleMute(); return; }
   if (!selected || e.target.closest("textarea, input")) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); nudge(-1, e.shiftKey); }
   if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); nudge(1, e.shiftKey); }
@@ -669,6 +800,7 @@ function no() {
 }
 
 checkBtn.onclick = async () => {
+  sfx.press();
   checkBtn.classList.add("busy");
   try {
     const res = await fetch(`${API}/check`, {
@@ -681,6 +813,7 @@ checkBtn.onclick = async () => {
 
     if (res.status === 429) {
       const secs = data.retryAfter || 60;
+      sfx.cool();
       checkBtn.classList.add("cool");
       bar.style.transition = "none";
       bar.style.width = "100%";
@@ -690,9 +823,11 @@ checkBtn.onclick = async () => {
       }));
       setTimeout(() => checkBtn.classList.remove("cool"), secs * 1000);
     } else if (data.ok && data.url) {
+      sfx.win();
       document.getElementById("white").classList.add("on");
-      setTimeout(() => { location.href = data.url; }, 1500);
+      setTimeout(() => { location.href = data.url; }, 2200);
     } else if (res.ok) {
+      sfx.wrong();
       svg.classList.remove("wrong"); void svg.getBBox(); svg.classList.add("wrong");
     } else {
       no();
