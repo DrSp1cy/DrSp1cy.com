@@ -19,6 +19,7 @@
     touch-action: none;
   }
   img { -webkit-user-drag: none; user-select: none; pointer-events: none; display: block; }
+  body.wait, body.wait * { cursor: wait !important; }
 
   #scene {
     position: fixed; inset: 0;
@@ -49,40 +50,21 @@
   .hot { position: absolute; cursor: pointer; }
 
   #screen { overflow: hidden; border-radius: 7% / 9%; }
-  #screen .glass {
+  .glass {
     position: absolute; inset: 0;
     background: radial-gradient(ellipse at 35% 28%, rgba(255,255,255,.06), transparent 55%);
     pointer-events: none;
+    z-index: 5;
   }
   #screen .crt {
     position: absolute; inset: 0;
-    background: #ecebe7;
-    display: grid; place-items: center;
+    background: #000;
     opacity: 0;
     transform: scale(1, .004);
     filter: brightness(3);
   }
-  #screen .crt svg { width: 62%; height: auto; opacity: .92; }
-  #screen .crt::before {
-    content: "";
-    position: absolute; inset: 0;
-    background: repeating-linear-gradient(0deg, rgba(0,0,0,.13) 0 1px, transparent 1px 3px);
-    pointer-events: none;
-    z-index: 2;
-  }
-  #screen .crt::after {
-    content: "";
-    position: absolute; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45) 100%);
-    pointer-events: none;
-    z-index: 3;
-    animation: roll 7s linear infinite;
-  }
-  @keyframes roll {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .85; }
-  }
   #screen.on .crt { animation: crtOn .55s cubic-bezier(.2, .8, .3, 1) forwards, hum 3.2s 0.6s infinite; }
+  #screen.on.instant .crt { animation: hum 3.2s infinite; opacity: 1; transform: none; filter: none; }
   #screen.off .crt { animation: crtOff .35s ease-in forwards; }
   @keyframes crtOn {
     0%   { opacity: 1; transform: scale(1, .004); filter: brightness(4); }
@@ -105,7 +87,7 @@
     position: absolute;
     pointer-events: none;
     border-radius: 50%;
-    background: radial-gradient(ellipse, rgba(225, 235, 240, .22), transparent 65%);
+    background: radial-gradient(ellipse, rgba(150, 180, 240, .2), transparent 65%);
     mix-blend-mode: screen;
     opacity: 0;
     transition: opacity .6s ease;
@@ -136,31 +118,395 @@
   }
   body.zoomed .vignette { opacity: 0; }
 
-  #shade {
-    position: fixed; inset: 0;
-    display: none;
-    cursor: zoom-out;
-  }
+  #shade { position: fixed; inset: 0; display: none; cursor: zoom-out; }
   body.zoomed #shade { display: block; }
 
-  #pc {
+  #monitor {
     position: fixed;
-    border: 0;
-    background: #ecebe7;
+    display: none;
+    overflow: hidden;
+    border-radius: 7% / 9%;
+    box-shadow: 0 0 60px rgba(150, 180, 240, .15);
+  }
+  #monitor.show { display: block; }
+
+  #blackout {
+    position: fixed; inset: 0;
+    background: #000;
     opacity: 0;
     pointer-events: none;
-    transition: opacity .5s ease;
-    border-radius: 2.2% / 3%;
-    box-shadow: 0 0 60px rgba(220, 235, 240, .18);
+    transition: opacity .7s ease;
   }
-  #pc.show { opacity: 1; pointer-events: auto; }
+  #blackout.on { opacity: 1; }
+
+  /* ---------- the computer ---------- */
+  #os {
+    position: absolute; left: 0; top: 0;
+    width: 560px; height: 434px;
+    transform-origin: 0 0;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif;
+    font-size: 11px;
+    pointer-events: none;
+    cursor: default;
+  }
+  #os.live { pointer-events: auto; }
+  #os .scan {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.1) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 62%, rgba(0,0,0,.42) 100%);
+  }
+  #os svg { display: block; }
+  .view { position: absolute; inset: 0; display: none; }
+  .view.active { display: block; animation: vin .35s ease; }
+  @keyframes vin { from { opacity: 0; } to { opacity: 1; } }
+
+  .post {
+    background: #000;
+    padding: 18px 20px;
+    font-family: "Lucida Console", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #b9b9b9;
+  }
+  .post .pl { white-space: pre; }
+  .post .badge { position: absolute; right: 20px; top: 16px; width: 54px; opacity: .85; }
+
+  .splash { background: #000; }
+  .splash .mid {
+    position: absolute; left: 50%; top: 46%;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .splash .mid svg { width: 96px; }
+  .wordmark {
+    margin-top: 10px;
+    font: italic bold 28px "Franklin Gothic Medium", "Trebuchet MS", Arial, sans-serif;
+    letter-spacing: .5px;
+    color: #f1efe9;
+  }
+  .wordmark b { color: #d0353d; }
+  .bar {
+    margin-top: 34px;
+    width: 120px; height: 16px;
+    border: 2px solid #9a9a9a;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar i {
+    position: absolute; top: 2px;
+    width: 8px; height: 8px;
+    border-radius: 1px;
+    background: linear-gradient(#a6c3ff, #2556d8 60%, #1640b0);
+    animation: slide 1.5s linear infinite;
+  }
+  .bar i:nth-child(2) { animation-delay: .09s; }
+  .bar i:nth-child(3) { animation-delay: .18s; }
+  @keyframes slide { from { left: -34px; } to { left: 124px; } }
+
+  .lg-top, .lg-bot { position: absolute; left: 0; right: 0; height: 62px; background: #00309c; }
+  .lg-top { top: 0; box-shadow: 0 2px 0 #8fb0f2; }
+  .lg-bot { bottom: 0; box-shadow: 0 -2px 0 #f0953f; }
+  .lg-mid {
+    position: absolute; top: 64px; bottom: 64px; left: 0; right: 0;
+    background: radial-gradient(circle at 18% 12%, #97b5f2, #5a7edc 45%, #4469cc);
+    display: flex; align-items: center;
+  }
+  .lg-left { width: 50%; text-align: right; padding-right: 22px; }
+  .lg-left svg { width: 70px; display: inline-block !important; }
+  .lg-left .wordmark { font-size: 22px; margin-top: 4px; }
+  .lg-div { width: 1px; height: 70%; background: linear-gradient(transparent, #d6e2fa, transparent); }
+  .lg-right { width: 50%; padding-left: 20px; }
+  .user {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 6px; width: 220px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .user.sel { background: linear-gradient(90deg, #0b3aa6, rgba(11,58,166,0)); cursor: default; }
+  .avatar {
+    width: 48px; height: 48px; flex: none;
+    border-radius: 5px;
+    border: 2px solid #fff;
+    background: #141414;
+    display: grid; place-items: center;
+    transition: border-color .15s;
+  }
+  .avatar svg { width: 38px; }
+  .user:hover .avatar, .user.sel .avatar { border-color: #ffcf55; }
+  .uname { font-size: 15px; margin-top: 4px; text-shadow: 1px 1px 1px rgba(0,0,0,.35); }
+  .pw { display: none; margin-top: 6px; align-items: center; gap: 5px; }
+  .user.sel .pw { display: flex; }
+  .pwbox {
+    width: 120px; height: 19px;
+    background: #fff; color: #000;
+    border: 1px solid #1c3f9a; border-radius: 2px;
+    font-size: 10px; line-height: 17px; letter-spacing: 2px;
+    padding: 0 4px; overflow: hidden;
+  }
+  .go {
+    width: 21px; height: 21px;
+    border-radius: 4px;
+    border: 1px solid #fff;
+    background: linear-gradient(#73da62, #2a9a26 60%, #1f7e1d);
+    cursor: pointer;
+    position: relative;
+  }
+  .go::after {
+    content: ""; position: absolute; left: 7px; top: 5px;
+    border-left: 7px solid #fff;
+    border-top: 4.5px solid transparent;
+    border-bottom: 4.5px solid transparent;
+  }
+  .go:disabled { opacity: .45; cursor: default; }
+  .go:not(:disabled) { animation: nudge 1.6s ease-in-out infinite; }
+  @keyframes nudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 0 3px rgba(255,255,255,.35); } }
+  .pwr {
+    position: absolute; left: 18px; top: 18px;
+    width: 26px; height: 26px;
+    border-radius: 5px;
+    border: 1px solid #fff;
+    background: linear-gradient(#ff8a52, #d63e12);
+    cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .pwr svg { width: 15px; }
+  .center-msg {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    font: italic bold 34px Tahoma, Verdana, sans-serif;
+    text-shadow: 2px 2px 3px rgba(0,0,30,.4);
+  }
+  .center-msg.small { font-size: 16px; font-style: normal; font-weight: normal; }
+  .center-msg svg { width: 46px; }
+
+  .wall { position: absolute; inset: 0; }
+  .wall svg { width: 100%; height: 100%; }
+  .icons {
+    position: absolute; left: 6px; top: 8px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .icon {
+    width: 72px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    cursor: pointer;
+  }
+  .icon .ico { width: 36px; height: 36px; }
+  .icon .ico svg { width: 100%; height: 100%; }
+  .icon span {
+    font-size: 11px; line-height: 13px; text-align: center;
+    padding: 0 2px;
+    text-shadow: 1px 1px 1px #000;
+    color: #fff;
+  }
+  .icon.sel .ico { filter: brightness(.75) sepia(1) hue-rotate(180deg) saturate(2.5); }
+  .icon.sel span { background: #316ac5; text-shadow: none; outline: 1px dotted #fff; }
+
+  .wins { position: absolute; left: 0; top: 0; right: 0; bottom: 26px; pointer-events: none; }
+  .win {
+    position: absolute;
+    display: flex; flex-direction: column;
+    background: #0a55e0;
+    padding: 0 3px 3px;
+    border-radius: 7px 7px 0 0;
+    box-shadow: 2px 3px 9px rgba(0,0,0,.45);
+    color: #000;
+    pointer-events: auto;
+  }
+  .tb {
+    height: 23px; flex: none;
+    margin: 0 -3px;
+    padding: 0 3px 0 7px;
+    display: flex; align-items: center; gap: 6px;
+    border-radius: 7px 7px 0 0;
+    background: linear-gradient(#3d95ff, #0058ee 12%, #0055e8 50%, #0467fa 88%, #0054e3);
+    color: #fff;
+    font-weight: bold; font-size: 12px;
+    text-shadow: 1px 1px #0b2a8a;
+    white-space: nowrap; overflow: hidden;
+    cursor: default;
+  }
+  .tb .ti { width: 15px; height: 15px; flex: none; }
+  .tb .tt { overflow: hidden; text-overflow: ellipsis; }
+  .win.inactive, .win.inactive .tb { filter: saturate(.45) brightness(1.12); }
+  .x {
+    margin-left: auto; flex: none;
+    width: 19px; height: 19px;
+    border-radius: 3px;
+    border: 1px solid #fff;
+    background: linear-gradient(#ee8a62, #cf4316 60%, #b83510);
+    position: relative;
+    cursor: pointer;
+  }
+  .x::before, .x::after {
+    content: ""; position: absolute; left: 7.5px; top: 3px;
+    width: 2px; height: 11px; background: #fff;
+    transform: rotate(45deg);
+  }
+  .x::after { transform: rotate(-45deg); }
+  .wb { flex: 1; background: #fff; overflow: auto; position: relative; }
+  .ws {
+    flex: none; height: 18px;
+    background: #ece9d8;
+    border-top: 1px solid #c8c4b0;
+    font-size: 11px; line-height: 17px;
+    padding: 0 6px;
+  }
+  .folder { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+  .folder .icon span { color: #000; text-shadow: none; }
+  .folder .icon.sel span { color: #fff; }
+  .np {
+    padding: 4px 6px;
+    font: 12px "Lucida Console", "Courier New", monospace;
+    white-space: pre-wrap;
+  }
+
+  .taskbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 26px;
+    display: flex;
+    background: linear-gradient(#3f8cf3, #2a62dc 9%, #245ad8 50%, #2257d5 88%, #1c48b8);
+    z-index: 40;
+  }
+  .startbtn {
+    height: 26px;
+    padding: 0 16px 0 7px;
+    display: flex; align-items: center; gap: 4px;
+    border: none;
+    border-radius: 0 11px 11px 0;
+    background: linear-gradient(#67b65a, #3e9b3a 18%, #2f8a2e 80%, #2b7a2a);
+    box-shadow: inset -1px 0 2px rgba(0,0,0,.35), 1px 0 2px rgba(0,0,0,.3);
+    color: #fff;
+    font: italic bold 15px "Franklin Gothic Medium", "Trebuchet MS", Arial, sans-serif;
+    text-shadow: 1px 1px 1px rgba(0,0,0,.5);
+    cursor: pointer;
+  }
+  .startbtn svg { width: 20px; }
+  .startbtn.down { background: linear-gradient(#2b7a2a, #2f8a2e 20%, #3e9b3a); }
+  .tasks { flex: 1; display: flex; gap: 3px; padding: 3px 6px; overflow: hidden; }
+  .task {
+    width: 118px; height: 20px;
+    display: flex; align-items: center; gap: 4px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: #3c81f3;
+    border: 1px solid #1a47b0;
+    color: #fff; font-size: 11px;
+    white-space: nowrap; overflow: hidden;
+    cursor: pointer;
+  }
+  .task svg { width: 14px; height: 14px; flex: none; }
+  .task span { overflow: hidden; text-overflow: ellipsis; }
+  .task.active { background: #1d4fb6; box-shadow: inset 1px 1px 2px rgba(0,0,0,.4); }
+  .tray {
+    padding: 0 11px;
+    display: flex; align-items: center;
+    background: linear-gradient(#1aa0f0, #0f8de6 12%, #0c84df 88%, #0a72c8);
+    border-left: 1px solid #0f3c8f;
+    box-shadow: inset 1px 0 1px rgba(255,255,255,.25);
+    font-size: 11px;
+  }
+
+  .startmenu {
+    position: absolute; left: 0; bottom: 26px;
+    width: 236px;
+    border-radius: 7px 7px 0 0;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #1c50c5;
+    box-shadow: 2px 2px 9px rgba(0,0,0,.5);
+    display: none;
+    z-index: 60;
+    color: #000;
+  }
+  .startmenu.open { display: block; animation: vin .15s ease; }
+  .sm-head {
+    height: 50px;
+    display: flex; align-items: center; gap: 9px;
+    padding: 0 8px;
+    background: linear-gradient(#2a7ae6, #0f5fcb 15%, #1e6ad6 85%, #2b74da);
+    color: #fff; font-weight: bold; font-size: 14px;
+    text-shadow: 1px 1px 1px rgba(0,0,0,.4);
+  }
+  .sm-head .avatar { width: 38px; height: 38px; }
+  .sm-head .avatar svg { width: 30px; }
+  .sm-body { padding: 5px 0; }
+  .smi { display: flex; align-items: center; gap: 9px; padding: 5px 10px; cursor: pointer; }
+  .smi svg { width: 26px; height: 26px; }
+  .smi:hover { background: #316ac5; color: #fff; }
+  .sm-sep { height: 1px; margin: 4px 8px; background: linear-gradient(90deg, transparent, #b8c8e8, transparent); }
+  .sm-foot {
+    height: 36px;
+    display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+    padding: 0 10px;
+    background: linear-gradient(#3e86e2, #2866d0);
+    color: #fff;
+  }
+  .smb { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .smb i {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    border: 1px solid #fff;
+    display: grid; place-items: center;
+  }
+  .smb i svg { width: 13px; }
+  .smb.lo i { background: linear-gradient(#f6c35c, #df9416); }
+  .smb.off i { background: linear-gradient(#ff8a52, #d63e12); }
+  .smb:hover span { text-decoration: underline; }
 
   @media (prefers-reduced-motion: reduce) {
-    .lampglow, #screen .crt::after { animation: none; }
+    .lampglow { animation: none; }
   }
 </style>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-eye" viewBox="0 0 100 60">
+      <path d="M4 30 Q50 -14 96 30 Q50 74 4 30Z" fill="#efe9dc"/>
+      <circle cx="50" cy="30" r="17" fill="#b3262e"/>
+      <circle cx="50" cy="30" r="8" fill="#000"/>
+      <circle cx="56" cy="24" r="3" fill="#fff" opacity=".8"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 40 40">
+      <rect x="3" y="30" width="34" height="7" rx="2" fill="#d9a46a" stroke="#9c6b38"/>
+      <path d="M8 31 V12 C8 4 18 4 18 12 V24 C18 30 26 30 26 24 V10 C26 3 34 3 34 10 V31" fill="none" stroke="#e2482e" stroke-width="2.4"/>
+      <path d="M12 31 V22 C12 16 20 16 22 22 C24 28 30 26 30 20 V31" fill="none" stroke="#1fb0a5" stroke-width="2.4"/>
+      <circle cx="8" cy="17" r="3.2" fill="#f08a3c"/><circle cx="26" cy="13" r="3.2" fill="#8a5cc7"/>
+      <circle cx="18" cy="21" r="3.2" fill="#f5cf2a"/><circle cx="30" cy="24" r="3.2" fill="#9bd13c"/>
+      <circle cx="22" cy="23" r="3.2" fill="#2aa3c9"/>
+    </symbol>
+    <symbol id="i-folder" viewBox="0 0 40 40">
+      <path d="M3 9 h12 l3 4 h19 v21 h-34z" fill="#d9ad3f"/>
+      <path d="M3 15 h34 v19 h-34z" fill="#f6d77a" stroke="#c99a2e"/>
+    </symbol>
+    <symbol id="i-bin" viewBox="0 0 40 40">
+      <path d="M10 11 h20 l-2 25 h-16z" fill="#dfe6ee" stroke="#7a8794"/>
+      <rect x="8" y="7" width="24" height="4" rx="1.5" fill="#b5c1cc" stroke="#7a8794"/>
+      <path d="M15 15 l1 18 M20 15 v18 M25 15 l-1 18" stroke="#9aa7b4" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="i-txt" viewBox="0 0 40 40">
+      <path d="M9 3 h16 l7 7 v27 h-23z" fill="#fff" stroke="#8a8a8a"/>
+      <path d="M25 3 v7 h7" fill="#e4e4e4" stroke="#8a8a8a"/>
+      <path d="M13 16 h15 M13 20 h15 M13 24 h15 M13 28 h10" stroke="#8fa6c4" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="i-power" viewBox="0 0 20 20">
+      <path d="M6 5.5 A6.5 6.5 0 1 0 14 5.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M10 2 V10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-key" viewBox="0 0 20 20">
+      <circle cx="7" cy="10" r="4" fill="none" stroke="#fff" stroke-width="2.2"/>
+      <path d="M11 10 H18 M15 10 V13" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
 
 <div id="scene">
   <div class="layer" id="room">
@@ -173,14 +519,118 @@
     <div id="screenGlow" data-box="1590,470,400,330"></div>
     <div class="hot" id="screen" data-box="1674,542,226,175">
       <div class="crt">
-        <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
-          <path d="M30 104 V34 C30 14 60 14 60 34 V80 C60 96 84 96 84 80 V30 C84 10 116 10 116 30 V72 C116 88 140 88 140 72 V36 C140 16 170 16 170 36 V104" fill="none" stroke="#e2482e" stroke-width="5" stroke-linecap="round"/>
-          <path d="M40 104 V64 C40 48 56 46 64 60 C74 78 88 80 100 64 C112 48 124 46 134 62 C144 78 156 76 160 62 V104" fill="none" stroke="#1fb0a5" stroke-width="5" stroke-linecap="round"/>
-          <rect x="18" y="100" width="164" height="14" rx="4" fill="#ddb07a"/>
-          <circle cx="30" cy="50" r="8" fill="#f08a3c"/><circle cx="84" cy="44" r="8" fill="#8a5cc7"/>
-          <circle cx="116" cy="58" r="8" fill="#2aa3c9"/><circle cx="64" cy="62" r="8" fill="#f5cf2a"/>
-          <circle cx="134" cy="64" r="8" fill="#9bd13c"/><circle cx="170" cy="52" r="8" fill="#5b6b8c"/>
-        </svg>
+        <div id="os">
+
+          <div class="view" data-v="off"></div>
+          <div class="view" data-v="black"></div>
+
+          <div class="view post" data-v="post">
+            <svg class="badge" viewBox="0 0 100 60"><use href="#i-eye"/></svg>
+            <div class="lines"></div>
+          </div>
+
+          <div class="view splash" data-v="splash">
+            <div class="mid">
+              <svg viewBox="0 0 100 60"><use href="#i-eye"/></svg>
+              <div class="wordmark">DrSp<b>1</b>cy</div>
+              <div class="bar"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+
+          <div class="view" data-v="login">
+            <div class="lg-top"></div>
+            <div class="lg-mid">
+              <div class="lg-left">
+                <svg viewBox="0 0 100 60"><use href="#i-eye"/></svg>
+                <div class="wordmark">DrSp<b>1</b>cy</div>
+              </div>
+              <div class="lg-div"></div>
+              <div class="lg-right">
+                <div class="user" id="userTile">
+                  <div class="avatar"><svg viewBox="0 0 100 60"><use href="#i-eye"/></svg></div>
+                  <div>
+                    <div class="uname">DrSp1cy</div>
+                    <div class="pw">
+                      <div class="pwbox"><span class="dots"></span></div>
+                      <button class="go" disabled></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="lg-bot"><div class="pwr" id="lgPower"><svg viewBox="0 0 20 20"><use href="#i-power"/></svg></div></div>
+          </div>
+
+          <div class="view" data-v="welcome">
+            <div class="lg-top"></div>
+            <div class="lg-mid"></div>
+            <div class="lg-bot"></div>
+            <div class="center-msg">welcome</div>
+          </div>
+
+          <div class="view" data-v="bye">
+            <div class="lg-top"></div>
+            <div class="lg-mid"></div>
+            <div class="lg-bot"></div>
+            <div class="center-msg small"><svg viewBox="0 0 100 60"><use href="#i-eye"/></svg><span class="byeText">shutting down...</span></div>
+          </div>
+
+          <div class="view" data-v="desktop">
+            <div class="wall">
+              <svg viewBox="0 0 560 434" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#16224a"/>
+                    <stop offset=".55" stop-color="#6b4f86"/>
+                    <stop offset="1" stop-color="#e0916a"/>
+                  </linearGradient>
+                  <linearGradient id="hill1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#3f6e2c"/><stop offset="1" stop-color="#1d3a16"/>
+                  </linearGradient>
+                  <linearGradient id="hill2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#2c5220"/><stop offset="1" stop-color="#0f2209"/>
+                  </linearGradient>
+                  <radialGradient id="halo"><stop offset="0" stop-color="#ffe6c4" stop-opacity=".5"/><stop offset="1" stop-color="#ffe6c4" stop-opacity="0"/></radialGradient>
+                </defs>
+                <rect width="560" height="434" fill="url(#sky)"/>
+                <circle cx="420" cy="112" r="70" fill="url(#halo)"/>
+                <g id="skyEye">
+                  <path d="M384 112 Q420 82 456 112 Q420 142 384 112Z" fill="#f4e6cb"/>
+                  <circle id="skyIris" cx="420" cy="112" r="12" fill="#b3262e"/>
+                  <circle id="skyPupil" cx="420" cy="112" r="5.5" fill="#000"/>
+                </g>
+                <path d="M0 292 C110 246 250 262 340 292 S500 318 560 282 V434 H0Z" fill="url(#hill1)"/>
+                <path d="M0 352 C140 318 300 334 400 356 S520 370 560 350 V434 H0Z" fill="url(#hill2)"/>
+              </svg>
+            </div>
+            <div class="icons">
+              <div class="icon" data-open="playtime"><div class="ico"><svg viewBox="0 0 40 40"><use href="#i-play"/></svg></div><span>Playtime</span></div>
+              <div class="icon" data-open="docs"><div class="ico"><svg viewBox="0 0 40 40"><use href="#i-folder"/></svg></div><span>Documents</span></div>
+              <div class="icon" data-open="bin"><div class="ico"><svg viewBox="0 0 40 40"><use href="#i-bin"/></svg></div><span>Recycle Bin</span></div>
+            </div>
+            <div class="wins"></div>
+            <div class="startmenu">
+              <div class="sm-head"><div class="avatar"><svg viewBox="0 0 100 60"><use href="#i-eye"/></svg></div>DrSp1cy</div>
+              <div class="sm-body">
+                <div class="smi" data-open="playtime"><svg viewBox="0 0 40 40"><use href="#i-play"/></svg>Playtime</div>
+                <div class="sm-sep"></div>
+                <div class="smi" data-open="docs"><svg viewBox="0 0 40 40"><use href="#i-folder"/></svg>Documents</div>
+                <div class="smi" data-open="bin"><svg viewBox="0 0 40 40"><use href="#i-bin"/></svg>Recycle Bin</div>
+              </div>
+              <div class="sm-foot">
+                <div class="smb lo" data-act="logoff"><i><svg viewBox="0 0 20 20"><use href="#i-key"/></svg></i><span>Log Off</span></div>
+                <div class="smb off" data-act="shutdown"><i><svg viewBox="0 0 20 20"><use href="#i-power"/></svg></i><span>Turn Off</span></div>
+              </div>
+            </div>
+            <div class="taskbar">
+              <button class="startbtn"><svg viewBox="0 0 100 60"><use href="#i-eye"/></svg>start</button>
+              <div class="tasks"></div>
+              <div class="tray"><span class="clock"></span></div>
+            </div>
+          </div>
+
+          <div class="scan"></div>
+        </div>
       </div>
       <div class="glass"></div>
     </div>
@@ -193,26 +643,27 @@
 <div class="vignette"></div>
 <div class="grain"></div>
 <div id="shade"></div>
-<iframe id="pc" title="pc" allow="autoplay"></iframe>
+<div id="monitor"><div class="glass"></div></div>
+<div id="blackout"></div>
 
 <script>
 const WORLD_W = 3200, WORLD_H = 1080;
 const START_X = () => (innerWidth / Math.max(innerHeight / 1080, innerWidth / 3200) < 1200 ? 1790 : 1690);
 const PARALLAX = 0.86;
-const PC_URL = "playtime/";
+const OS_W = 560;
+const SAVE_KEY = "ds-screen";
 
-const scene = document.getElementById("scene");
-const room = document.getElementById("room");
-const desk = document.getElementById("desk");
-const screenEl = document.getElementById("screen");
-const glow = document.getElementById("screenGlow");
-const tower = document.getElementById("tower");
-const leds = [document.getElementById("ledMon"), document.getElementById("ledTower")];
-const pc = document.getElementById("pc");
+const $ = (q, el = document) => el.querySelector(q);
+const scene = $("#scene"), room = $("#room"), desk = $("#desk");
+const screenEl = $("#screen"), crt = $("#screen .crt"), osEl = $("#os");
+const glow = $("#screenGlow"), tower = $("#tower");
+const leds = [$("#ledMon"), $("#ledTower")];
+const monitor = $("#monitor"), blackout = $("#blackout");
+const SCREEN_W = Number(screenEl.dataset.box.split(",")[2]);
 
 let s = 1, viewW = 0, viewH = 0, maxCam = 0, topOff = 0;
 let cam = 0, target = 0;
-let powered = false, zoomed = false, busy = false;
+let powered = false, zoomed = false, busy = false, zt = 0;
 
 function layout() {
   viewW = innerWidth; viewH = innerHeight;
@@ -231,15 +682,13 @@ function layout() {
     el.style.width = w * s + "px";
     el.style.height = h * s + "px";
   });
+  if (!osEl.classList.contains("live")) osEl.style.transform = `scale(${SCREEN_W * s / OS_W})`;
   target = clampCam(target);
   cam = clampCam(cam);
   render();
 }
 const clampCam = c => { const half = (viewW / s) / 2; return Math.max(half, Math.min(half + maxCam, c)); };
-
-function camLeft(centerX) {
-  return Math.max(0, Math.min(maxCam, centerX - (viewW / s) / 2));
-}
+const camLeft = c => Math.max(0, Math.min(maxCam, c - (viewW / s) / 2));
 function render() {
   const left = camLeft(cam);
   const startLeft = camLeft(START_X());
@@ -248,8 +697,7 @@ function render() {
   room.style.transform = `translate3d(${-roomLeft * s}px,0,0)`;
 }
 
-const EDGE = 0.22;
-const MAX_SPEED = 1500;
+const EDGE = 0.22, MAX_SPEED = 1500;
 let mouseX = null, lastT = performance.now();
 function tick(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000);
@@ -268,11 +716,9 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
-let pointerType = "mouse";
 const canHover = matchMedia("(hover: hover) and (pointer: fine)").matches;
 let firstMouse = null;
 window.addEventListener("pointermove", e => {
-  pointerType = e.pointerType;
   if (!canHover || e.pointerType !== "mouse") { mouseX = null; return; }
   if (!firstMouse) { firstMouse = { x: e.clientX, y: e.clientY }; return; }
   if (firstMouse !== true && Math.hypot(e.clientX - firstMouse.x, e.clientY - firstMouse.y) < 4) return;
@@ -294,17 +740,13 @@ window.addEventListener("pointermove", e => {
   const now = performance.now();
   drag.v = (e.clientX - drag.lx) / Math.max(1, now - drag.t);
   drag.lx = e.clientX; drag.t = now;
-  const half = (viewW / s) / 2;
-  target = Math.max(half, Math.min(half + maxCam, drag.cam - dx / s));
+  target = clampCam(drag.cam - dx / s);
   cam = target;
   render();
 });
 window.addEventListener("pointerup", () => {
   if (!drag) return;
-  if (drag.moved) {
-    const half = (viewW / s) / 2;
-    target = Math.max(half, Math.min(half + maxCam, target - drag.v * 260 / s));
-  }
+  if (drag.moved) target = clampCam(target - drag.v * 260 / s);
   window._lastDragMoved = drag.moved;
   drag = null;
   setTimeout(() => { window._lastDragMoved = false; }, 0);
@@ -337,10 +779,31 @@ const audio = (() => {
     src.connect(f).connect(g).connect(ctx.destination);
     src.start(t);
   }
+  function tone(freq, start, dur, vol, type = "sine") {
+    if (!ctx) return;
+    const t = ctx.currentTime + start;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .025);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + dur + .05);
+  }
+  function chord(notes, step, dur) {
+    notes.forEach((f, i) => {
+      tone(f, i * step, dur, .07);
+      tone(f * 2.003, i * step, dur * .6, .018, "triangle");
+    });
+  }
   return {
     ensure,
     click() { ensure(); noise(.05, 2400, .5, 2); setTimeout(() => noise(.04, 1500, .35, 2), 70); },
     thunk() { ensure(); noise(.5, 90, .9, 1); },
+    tap() { ensure(); noise(.03, 3200, .18, 3); },
+    beep() { ensure(); tone(880, 0, .16, .05, "square"); },
+    chime() { ensure(); chord([392, 587.33, 523.25, 772], .17, 1.9); },
+    logoff() { ensure(); chord([772, 587.33, 523.25, 392], .2, 1.6); },
     hum(on) {
       if (!ctx) return;
       humGain.gain.cancelScheduledValues(ctx.currentTime);
@@ -349,88 +812,408 @@ const audio = (() => {
   };
 })();
 
-function setPower(on) {
+const OS = (() => {
+  const root = osEl;
+  const views = {};
+  root.querySelectorAll(".view").forEach(v => { views[v.dataset.v] = v; });
+  const postLines = $(".post .lines", root);
+  const tile = $("#userTile", root), dots = $(".dots", root), go = $(".go", root);
+  const winsEl = $(".wins", root), tasksEl = $(".tasks", root);
+  const startMenu = $(".startmenu", root), startBtn = $(".startbtn", root);
+  const clock = $(".clock", root);
+  const hooks = { save() {}, shutdown() {}, launch() {} };
+
+  let gen = 0, stage = "off", pwReady = false;
+  const at = (ms, fn) => { const g = gen; setTimeout(() => { if (g === gen) fn(); }, ms); };
+  const show = name => { for (const k in views) views[k].classList.toggle("active", k === name); };
+  const setStage = st => { stage = st; hooks.save(); };
+
+  const POST = [
+    [0, "DS-BIOS v0.07"],
+    [160, "CPU : ??? @ 3.66 MHz"],
+    [320, "#MEM"],
+    [1200, ""],
+    [1260, "Detecting drives ..."],
+    [1520, "  Primary Master   : PLAYTIME"],
+    [1680, "  Primary Slave    : None"],
+    [1900, "Detecting observers ..... 1 found"],
+    [2300, ""],
+    [2360, "Press DEL to forget"]
+  ];
+
+  function boot() {
+    gen++;
+    setStage("boot");
+    closeAll(); closeStart();
+    postLines.textContent = "";
+    show("post");
+    at(300, () => audio.beep());
+    POST.forEach(([t, line]) => at(t + 250, () => {
+      const d = document.createElement("div");
+      d.className = "pl";
+      postLines.appendChild(d);
+      if (line === "#MEM") {
+        const g = gen, t0 = performance.now();
+        const step = () => {
+          if (g !== gen) return;
+          const p = Math.min(1, (performance.now() - t0) / 750);
+          d.textContent = "Memory Test : " + Math.floor(p * 524288) + "K" + (p >= 1 ? " OK" : "");
+          if (p < 1) requestAnimationFrame(step);
+        };
+        step();
+      } else d.textContent = line || "\u00a0";
+    }));
+    at(3100, () => show("black"));
+    at(3500, () => show("splash"));
+    at(6900, () => show("black"));
+    at(7300, toLogin);
+  }
+
+  function toLogin() {
+    gen++;
+    setStage("login");
+    closeAll(); closeStart();
+    tile.classList.remove("sel");
+    dots.textContent = "";
+    go.disabled = true;
+    pwReady = false;
+    show("login");
+  }
+
+  tile.addEventListener("click", () => {
+    if (tile.classList.contains("sel")) return;
+    tile.classList.add("sel");
+    audio.tap();
+    for (let i = 0; i < 8; i++) at(260 + i * 95, () => { dots.textContent += "\u25CF"; audio.tap(); });
+    at(260 + 8 * 95 + 120, () => { go.disabled = false; pwReady = true; });
+  });
+  go.addEventListener("click", e => { e.stopPropagation(); if (pwReady) signIn(); });
+  $("#lgPower", root).addEventListener("click", () => shutDown());
+
+  function signIn() {
+    gen++;
+    pwReady = false;
+    show("welcome");
+    at(1700, toDesktop);
+  }
+
+  function toDesktop() {
+    gen++;
+    setStage("desktop");
+    show("desktop");
+    audio.chime();
+    tickClock();
+  }
+
+  function shutDown() {
+    gen++;
+    closeStart();
+    $(".byeText", root).textContent = "shutting down...";
+    show("bye");
+    audio.logoff();
+    at(2000, () => hooks.shutdown());
+  }
+
+  function logOff() {
+    gen++;
+    closeStart();
+    $(".byeText", root).textContent = "logging off...";
+    show("bye");
+    audio.logoff();
+    at(1500, toLogin);
+  }
+
+  function powerOff() {
+    gen++;
+    stage = "off";
+    closeAll(); closeStart();
+    at(380, () => show("off"));
+  }
+
+  function restore(st) {
+    if (st === "desktop") { gen++; stage = "desktop"; show("desktop"); tickClock(); }
+    else if (st === "login") toLogin();
+    else boot();
+  }
+
+  function tickClock() {
+    const d = new Date();
+    let h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, "0");
+    const ap = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    clock.textContent = `${h}:${m} ${ap}`;
+  }
+  setInterval(() => { if (stage === "desktop") tickClock(); }, 15000);
+
+  const select = ic => {
+    root.querySelectorAll(".icon.sel").forEach(x => { if (x !== ic) x.classList.remove("sel"); });
+    if (ic) ic.classList.add("sel");
+  };
+
+  root.addEventListener("pointerdown", e => {
+    if (stage !== "desktop") return;
+    const ic = e.target.closest(".icon");
+    if (ic) {
+      select(ic);
+      const now = performance.now();
+      if (ic._last && now - ic._last < 450) { ic._last = 0; open(ic.dataset.open); }
+      else ic._last = now;
+    } else if (!e.target.closest(".win")) select(null);
+    if (!e.target.closest(".startmenu") && !e.target.closest(".startbtn")) closeStart();
+  });
+
+  startBtn.addEventListener("click", () => {
+    const o = !startMenu.classList.contains("open");
+    startMenu.classList.toggle("open", o);
+    startBtn.classList.toggle("down", o);
+  });
+  function closeStart() { startMenu.classList.remove("open"); startBtn.classList.remove("down"); }
+  startMenu.addEventListener("click", e => {
+    const it = e.target.closest("[data-open]"), act = e.target.closest("[data-act]");
+    if (it) { closeStart(); open(it.dataset.open); }
+    if (act && act.dataset.act === "logoff") logOff();
+    if (act && act.dataset.act === "shutdown") shutDown();
+  });
+
+  const wins = new Map();
+  let zTop = 10;
+
+  function noteText() {
+    let n = 0;
+    try { n = Number(localStorage.getItem("ds-note") || 0); localStorage.setItem("ds-note", n + 1); } catch (e) {}
+    return n === 0 ? "you already opened this." : "told you.";
+  }
+
+  function open(id) {
+    audio.tap();
+    if (id === "playtime") { hooks.launch("playtime/"); return; }
+    if (id === "bin") openWin("bin", "Recycle Bin", "#i-bin", `<div></div>`, 300, 180, "1 object(s)");
+    if (id === "docs") openWin("docs", "Documents", "#i-folder",
+      `<div class="folder"><div class="icon" data-open="note"><div class="ico"><svg viewBox="0 0 40 40"><use href="#i-txt"/></svg></div><span>dont_open.txt</span></div></div>`,
+      320, 190, "1 object(s)");
+    if (id === "note") openWin("note", "dont_open.txt - Notepad", "#i-txt", `<div class="np">${noteText()}</div>`, 270, 150);
+  }
+
+  function openWin(id, title, icon, body, w, h, status) {
+    if (wins.has(id)) { focus(id); return; }
+    const n = wins.size;
+    const el = document.createElement("div");
+    el.className = "win";
+    el.style.width = w + "px";
+    el.style.height = h + "px";
+    el.style.left = Math.min(OS_W - w - 6, 96 + n * 22) + "px";
+    el.style.top = (34 + n * 20) + "px";
+    el.innerHTML = `<div class="tb"><svg class="ti" viewBox="0 0 40 40"><use href="${icon}"/></svg><span class="tt">${title}</span><div class="x"></div></div><div class="wb">${body}</div>${status ? `<div class="ws">${status}</div>` : ""}`;
+    winsEl.appendChild(el);
+    const task = document.createElement("div");
+    task.className = "task";
+    task.innerHTML = `<svg viewBox="0 0 40 40"><use href="${icon}"/></svg><span>${title}</span>`;
+    tasksEl.appendChild(task);
+    wins.set(id, { el, task });
+
+    el.addEventListener("pointerdown", () => focus(id));
+    task.addEventListener("click", () => focus(id));
+    $(".x", el).addEventListener("click", e => { e.stopPropagation(); closeWin(id); });
+
+    const tb = $(".tb", el);
+    tb.addEventListener("pointerdown", e => {
+      if (e.target.closest(".x")) return;
+      const k = root.getBoundingClientRect().width / OS_W;
+      const sx = el.offsetLeft, sy = el.offsetTop, x0 = e.clientX, y0 = e.clientY;
+      tb.setPointerCapture(e.pointerId);
+      const mv = ev => {
+        el.style.left = Math.max(-w + 40, Math.min(OS_W - 40, sx + (ev.clientX - x0) / k)) + "px";
+        el.style.top = Math.max(0, Math.min(434 - 26 - 23, sy + (ev.clientY - y0) / k)) + "px";
+      };
+      const up = () => { tb.removeEventListener("pointermove", mv); tb.removeEventListener("pointerup", up); tb.removeEventListener("pointercancel", up); };
+      tb.addEventListener("pointermove", mv);
+      tb.addEventListener("pointerup", up);
+      tb.addEventListener("pointercancel", up);
+    });
+    focus(id);
+  }
+
+  function focus(id) {
+    wins.forEach((w, k) => {
+      const on = k === id;
+      w.el.classList.toggle("inactive", !on);
+      w.task.classList.toggle("active", on);
+      if (on) w.el.style.zIndex = ++zTop;
+    });
+  }
+  function closeWin(id) {
+    const w = wins.get(id);
+    if (!w) return;
+    w.el.remove(); w.task.remove();
+    wins.delete(id);
+  }
+  function closeAll() { [...wins.keys()].forEach(closeWin); }
+
+  const iris = $("#skyIris", root), pupil = $("#skyPupil", root);
+  window.addEventListener("pointermove", e => {
+    if (stage !== "desktop" || !root.classList.contains("live")) return;
+    const r = root.getBoundingClientRect();
+    const k = r.width / OS_W;
+    const x = (e.clientX - r.left) / k - 420, y = (e.clientY - r.top) / k - 112;
+    const d = Math.hypot(x, y) || 1, m = Math.min(1, d / 200);
+    const dx = x / d * 8 * m, dy = y / d * 6 * m;
+    iris.setAttribute("cx", 420 + dx); iris.setAttribute("cy", 112 + dy);
+    pupil.setAttribute("cx", 420 + dx * 1.15); pupil.setAttribute("cy", 112 + dy * 1.15);
+  });
+
+  function key(e) {
+    if (!root.classList.contains("live")) return false;
+    if (e.key === "Enter" && stage === "login" && pwReady) { signIn(); return true; }
+    if (e.key === "Escape" && startMenu.classList.contains("open")) { closeStart(); return true; }
+    return false;
+  }
+
+  return { boot, powerOff, restore, key, closeStart, hooks, get stage() { return stage; } };
+})();
+
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ on: powered, stage: OS.stage })); } catch (e) {}
+}
+
+function setPower(on, opts = {}) {
   powered = on;
-  screenEl.classList.remove("on", "off");
+  screenEl.classList.remove("on", "off", "instant");
   void screenEl.offsetWidth;
   screenEl.classList.add(on ? "on" : "off");
+  if (opts.instant) screenEl.classList.add("instant");
   glow.classList.toggle("on", on);
   leds.forEach(l => l.classList.toggle("on", on));
-  audio.click();
-  if (on) setTimeout(() => audio.thunk(), 220);
-  audio.hum(on);
+  if (!opts.silent) {
+    audio.click();
+    if (on) setTimeout(() => audio.thunk(), 220);
+  }
+  audio.hum(on && !zoomed);
+  if (on) { opts.restore ? OS.restore(opts.restore) : OS.boot(); }
+  else OS.powerOff();
+  save();
 }
+
+OS.hooks.save = save;
+OS.hooks.shutdown = () => { zoomed ? zoomOut(() => setPower(false)) : setPower(false); };
+OS.hooks.launch = url => {
+  document.body.classList.add("wait");
+  setTimeout(() => blackout.classList.add("on"), 450);
+  try { sessionStorage.setItem("ds-return", "1"); } catch (e) {}
+  setTimeout(() => { location.href = url; }, 1250);
+};
 
 tower.addEventListener("click", () => {
   if (window._lastDragMoved || zoomed || busy) return;
   setPower(!powered);
 });
-
 screenEl.addEventListener("click", () => {
   if (window._lastDragMoved || zoomed || busy) return;
   if (!powered) { setPower(true); return; }
   zoomIn();
 });
 
-function zoomIn() {
-  busy = true;
+function attach() {
   const r = screenEl.getBoundingClientRect();
-  const Z = Math.min(viewW * .92 / r.width, viewH * .9 / r.height);
+  monitor.style.left = r.left + "px";
+  monitor.style.top = r.top + "px";
+  monitor.style.width = r.width + "px";
+  monitor.style.height = r.height + "px";
+  monitor.insertBefore(osEl, monitor.firstChild);
+  osEl.style.transform = `scale(${r.width / OS_W})`;
+  osEl.classList.add("live");
+  monitor.classList.add("show");
+}
+function detach() {
+  osEl.classList.remove("live");
+  crt.appendChild(osEl);
+  osEl.style.transform = `scale(${SCREEN_W * s / OS_W})`;
+  monitor.classList.remove("show");
+}
+
+function zoomIn(instant) {
+  if (zoomed || busy) return;
+  busy = true;
+  const t = ++zt;
+  if (instant) scene.style.transition = "none";
+  const r = screenEl.getBoundingClientRect();
+  const Z = Math.min(viewW * .94 / r.width, viewH * .92 / r.height);
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   scene.style.transform = `translate(${viewW / 2 - cx * Z}px, ${viewH / 2 - cy * Z}px) scale(${Z})`;
   document.body.classList.add("zoomed");
   zoomed = true;
   audio.hum(false);
-  setTimeout(() => {
-    const w = r.width * Z, h = r.height * Z;
-    pc.style.width = w + "px";
-    pc.style.height = h + "px";
-    pc.style.left = (viewW - w) / 2 + "px";
-    pc.style.top = (viewH - h) / 2 + "px";
-    if (!pc.src || pc.dataset.loaded !== "1") { pc.src = PC_URL; pc.dataset.loaded = "1"; }
-    pc.classList.add("show");
+  const finish = () => {
+    if (t !== zt) return;
+    attach();
     busy = false;
-  }, 1150);
+    if (instant) requestAnimationFrame(() => { scene.style.transition = ""; });
+  };
+  if (instant) { void scene.offsetWidth; finish(); }
+  else setTimeout(finish, 1150);
 }
 
-function zoomOut() {
+function zoomOut(cb) {
   if (!zoomed || busy) return;
   busy = true;
-  pc.classList.remove("show");
+  const t = ++zt;
+  OS.closeStart();
+  detach();
+  scene.style.transform = "";
+  document.body.classList.remove("zoomed");
   setTimeout(() => {
-    pc.removeAttribute("src");
-    pc.dataset.loaded = "0";
-    scene.style.transform = "";
-    document.body.classList.remove("zoomed");
-    setTimeout(() => {
-      zoomed = false; busy = false;
-      if (powered) audio.hum(true);
-    }, 1150);
-  }, 450);
+    if (t !== zt) return;
+    zoomed = false; busy = false;
+    if (powered) audio.hum(true);
+    if (cb) cb();
+  }, 1150);
 }
-document.getElementById("shade").addEventListener("click", zoomOut);
-window.addEventListener("keydown", e => { if (e.key === "Escape") zoomOut(); });
+$("#shade").addEventListener("click", () => zoomOut());
+window.addEventListener("keydown", e => {
+  if (OS.key(e)) return;
+  if (e.key === "Escape") zoomOut();
+});
 
 window.addEventListener("resize", () => {
+  const was = zoomed && !busy;
   if (zoomed) {
+    zt++;
+    detach();
     scene.style.transition = "none";
-    pc.classList.remove("show");
-    pc.removeAttribute("src"); pc.dataset.loaded = "0";
     scene.style.transform = "";
     document.body.classList.remove("zoomed");
     zoomed = false; busy = false;
-    requestAnimationFrame(() => { scene.style.transition = ""; });
   }
   layout();
+  if (was) zoomIn(true);
+  else requestAnimationFrame(() => { scene.style.transition = ""; });
 });
 
-const imgs = [document.getElementById("roomImg"), document.getElementById("deskImg")];
+window.addEventListener("pointerdown", () => {
+  audio.ensure();
+  if (powered && !zoomed) audio.hum(true);
+}, { once: true, capture: true });
+
+window.addEventListener("pageshow", e => {
+  if (e.persisted) { blackout.classList.remove("on"); document.body.classList.remove("wait"); }
+});
+
+const imgs = [$("#roomImg"), $("#deskImg")];
 Promise.all(imgs.map(i => i.complete ? Promise.resolve() : new Promise(r => { i.onload = r; i.onerror = r; })))
   .then(() => scene.classList.add("ready"));
 
 layout();
 cam = target = clampCam(START_X());
 render();
+
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) {}
+if (saved.on) setPower(true, { silent: true, instant: true, restore: saved.stage });
+
+let returning = false;
+try { returning = sessionStorage.getItem("ds-return") === "1"; sessionStorage.removeItem("ds-return"); } catch (e) {}
+if (returning && powered) zoomIn(true);
+
 requestAnimationFrame(tick);
 </script>
 </body>
