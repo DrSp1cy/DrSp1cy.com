@@ -49,7 +49,7 @@
 
   .hot { position: absolute; cursor: pointer; }
 
-  #screen { overflow: hidden; border-radius: 7% / 9%; }
+  #screen { position: absolute; overflow: hidden; background: #000; }
   .glass {
     position: absolute; inset: 0;
     background: radial-gradient(ellipse at 35% 28%, rgba(255,255,255,.06), transparent 55%);
@@ -116,19 +116,11 @@
     opacity: .07;
     background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   }
-  body.zoomed .vignette { opacity: 0; }
 
-  #shade { position: fixed; inset: 0; display: none; cursor: zoom-out; }
-  body.zoomed #shade { display: block; }
-
-  #monitor {
-    position: fixed;
-    display: none;
-    overflow: hidden;
-    border-radius: 7% / 9%;
-    box-shadow: 0 0 60px rgba(150, 180, 240, .15);
-  }
-  #monitor.show { display: block; }
+  body.zoomed #scene { cursor: zoom-out; }
+  body.zoomed #screenHit { pointer-events: none; }
+  body.zoomed .layer { will-change: auto; }
+  body.zoomed .vignette { opacity: 1; background: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,.8) 100%); }
 
   #blackout {
     position: fixed; inset: 0;
@@ -142,7 +134,7 @@
   /* ---------- the computer ---------- */
   #os {
     position: absolute; left: 0; top: 0;
-    width: 560px; height: 434px;
+    width: 560px; height: 415px;
     transform-origin: 0 0;
     overflow: hidden;
     background: #000;
@@ -153,12 +145,12 @@
     cursor: default;
   }
   #os.live { pointer-events: auto; }
-  #os .scan {
+  .crt .scan {
     position: absolute; inset: 0;
     pointer-events: none;
     z-index: 100;
     background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.1) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 3px),
       radial-gradient(ellipse at center, transparent 62%, rgba(0,0,0,.42) 100%);
   }
   #os svg { display: block; }
@@ -515,9 +507,7 @@
   </div>
 
   <div class="layer" id="desk">
-    <img src="desk.png" alt="" id="deskImg">
-    <div id="screenGlow" data-box="1590,470,400,330"></div>
-    <div class="hot" id="screen" data-box="1674,542,226,175">
+    <div id="screen" data-box="1668,543,235,177">
       <div class="crt">
         <div id="os">
 
@@ -629,11 +619,14 @@
             </div>
           </div>
 
-          <div class="scan"></div>
         </div>
+        <div class="scan"></div>
       </div>
       <div class="glass"></div>
     </div>
+    <img src="desk2.png" alt="" id="deskImg" style="position:relative">
+    <div id="screenGlow" data-box="1590,470,400,330"></div>
+    <div class="hot" id="screenHit" data-box="1668,543,235,177"></div>
     <div class="hot" id="tower" data-box="1945,522,185,288"></div>
     <div class="led" id="ledMon" data-box="1868,740,9,9"></div>
     <div class="led" id="ledTower" data-box="2091,694,9,9"></div>
@@ -642,8 +635,6 @@
 
 <div class="vignette"></div>
 <div class="grain"></div>
-<div id="shade"></div>
-<div id="monitor"><div class="glass"></div></div>
 <div id="blackout"></div>
 
 <script>
@@ -658,8 +649,10 @@ const scene = $("#scene"), room = $("#room"), desk = $("#desk");
 const screenEl = $("#screen"), crt = $("#screen .crt"), osEl = $("#os");
 const glow = $("#screenGlow"), tower = $("#tower");
 const leds = [$("#ledMon"), $("#ledTower")];
-const monitor = $("#monitor"), blackout = $("#blackout");
-const SCREEN_W = Number(screenEl.dataset.box.split(",")[2]);
+const blackout = $("#blackout"), screenHit = $("#screenHit");
+const MAX_MAG = 2.8;
+const SCREEN_BOX = screenEl.dataset.box.split(",").map(Number);
+const OS_BOX = [1681, 556, 208, 154];
 
 let s = 1, viewW = 0, viewH = 0, maxCam = 0, topOff = 0;
 let cam = 0, target = 0;
@@ -682,7 +675,9 @@ function layout() {
     el.style.width = w * s + "px";
     el.style.height = h * s + "px";
   });
-  if (!osEl.classList.contains("live")) osEl.style.transform = `scale(${SCREEN_W * s / OS_W})`;
+  osEl.style.left = (OS_BOX[0] - SCREEN_BOX[0]) * s + "px";
+  osEl.style.top = (OS_BOX[1] - SCREEN_BOX[1]) * s + "px";
+  osEl.style.transform = `scale(${OS_BOX[2] * s / OS_W})`;
   target = clampCam(target);
   cam = clampCam(cam);
   render();
@@ -831,390 +826,4 @@ const OS = (() => {
   const POST = [
     [0, "DS-BIOS v0.07"],
     [160, "CPU : ??? @ 3.66 MHz"],
-    [320, "#MEM"],
-    [1200, ""],
-    [1260, "Detecting drives ..."],
-    [1520, "  Primary Master   : PLAYTIME"],
-    [1680, "  Primary Slave    : None"],
-    [1900, "Detecting observers ..... 1 found"],
-    [2300, ""],
-    [2360, "Press DEL to forget"]
-  ];
-
-  function boot() {
-    gen++;
-    setStage("boot");
-    closeAll(); closeStart();
-    postLines.textContent = "";
-    show("post");
-    at(300, () => audio.beep());
-    POST.forEach(([t, line]) => at(t + 250, () => {
-      const d = document.createElement("div");
-      d.className = "pl";
-      postLines.appendChild(d);
-      if (line === "#MEM") {
-        const g = gen, t0 = performance.now();
-        const step = () => {
-          if (g !== gen) return;
-          const p = Math.min(1, (performance.now() - t0) / 750);
-          d.textContent = "Memory Test : " + Math.floor(p * 524288) + "K" + (p >= 1 ? " OK" : "");
-          if (p < 1) requestAnimationFrame(step);
-        };
-        step();
-      } else d.textContent = line || "\u00a0";
-    }));
-    at(3100, () => show("black"));
-    at(3500, () => show("splash"));
-    at(6900, () => show("black"));
-    at(7300, toLogin);
-  }
-
-  function toLogin() {
-    gen++;
-    setStage("login");
-    closeAll(); closeStart();
-    tile.classList.remove("sel");
-    dots.textContent = "";
-    go.disabled = true;
-    pwReady = false;
-    show("login");
-  }
-
-  tile.addEventListener("click", () => {
-    if (tile.classList.contains("sel")) return;
-    tile.classList.add("sel");
-    audio.tap();
-    for (let i = 0; i < 8; i++) at(260 + i * 95, () => { dots.textContent += "\u25CF"; audio.tap(); });
-    at(260 + 8 * 95 + 120, () => { go.disabled = false; pwReady = true; });
-  });
-  go.addEventListener("click", e => { e.stopPropagation(); if (pwReady) signIn(); });
-  $("#lgPower", root).addEventListener("click", () => shutDown());
-
-  function signIn() {
-    gen++;
-    pwReady = false;
-    show("welcome");
-    at(1700, toDesktop);
-  }
-
-  function toDesktop() {
-    gen++;
-    setStage("desktop");
-    show("desktop");
-    audio.chime();
-    tickClock();
-  }
-
-  function shutDown() {
-    gen++;
-    closeStart();
-    $(".byeText", root).textContent = "shutting down...";
-    show("bye");
-    audio.logoff();
-    at(2000, () => hooks.shutdown());
-  }
-
-  function logOff() {
-    gen++;
-    closeStart();
-    $(".byeText", root).textContent = "logging off...";
-    show("bye");
-    audio.logoff();
-    at(1500, toLogin);
-  }
-
-  function powerOff() {
-    gen++;
-    stage = "off";
-    closeAll(); closeStart();
-    at(380, () => show("off"));
-  }
-
-  function restore(st) {
-    if (st === "desktop") { gen++; stage = "desktop"; show("desktop"); tickClock(); }
-    else if (st === "login") toLogin();
-    else boot();
-  }
-
-  function tickClock() {
-    const d = new Date();
-    let h = d.getHours();
-    const m = String(d.getMinutes()).padStart(2, "0");
-    const ap = h >= 12 ? "PM" : "AM";
-    h = h % 12 || 12;
-    clock.textContent = `${h}:${m} ${ap}`;
-  }
-  setInterval(() => { if (stage === "desktop") tickClock(); }, 15000);
-
-  const select = ic => {
-    root.querySelectorAll(".icon.sel").forEach(x => { if (x !== ic) x.classList.remove("sel"); });
-    if (ic) ic.classList.add("sel");
-  };
-
-  root.addEventListener("pointerdown", e => {
-    if (stage !== "desktop") return;
-    const ic = e.target.closest(".icon");
-    if (ic) {
-      select(ic);
-      const now = performance.now();
-      if (ic._last && now - ic._last < 450) { ic._last = 0; open(ic.dataset.open); }
-      else ic._last = now;
-    } else if (!e.target.closest(".win")) select(null);
-    if (!e.target.closest(".startmenu") && !e.target.closest(".startbtn")) closeStart();
-  });
-
-  startBtn.addEventListener("click", () => {
-    const o = !startMenu.classList.contains("open");
-    startMenu.classList.toggle("open", o);
-    startBtn.classList.toggle("down", o);
-  });
-  function closeStart() { startMenu.classList.remove("open"); startBtn.classList.remove("down"); }
-  startMenu.addEventListener("click", e => {
-    const it = e.target.closest("[data-open]"), act = e.target.closest("[data-act]");
-    if (it) { closeStart(); open(it.dataset.open); }
-    if (act && act.dataset.act === "logoff") logOff();
-    if (act && act.dataset.act === "shutdown") shutDown();
-  });
-
-  const wins = new Map();
-  let zTop = 10;
-
-  function noteText() {
-    let n = 0;
-    try { n = Number(localStorage.getItem("ds-note") || 0); localStorage.setItem("ds-note", n + 1); } catch (e) {}
-    return n === 0 ? "you already opened this." : "told you.";
-  }
-
-  function open(id) {
-    audio.tap();
-    if (id === "playtime") { hooks.launch("playtime/"); return; }
-    if (id === "bin") openWin("bin", "Recycle Bin", "#i-bin", `<div></div>`, 300, 180, "1 object(s)");
-    if (id === "docs") openWin("docs", "Documents", "#i-folder",
-      `<div class="folder"><div class="icon" data-open="note"><div class="ico"><svg viewBox="0 0 40 40"><use href="#i-txt"/></svg></div><span>dont_open.txt</span></div></div>`,
-      320, 190, "1 object(s)");
-    if (id === "note") openWin("note", "dont_open.txt - Notepad", "#i-txt", `<div class="np">${noteText()}</div>`, 270, 150);
-  }
-
-  function openWin(id, title, icon, body, w, h, status) {
-    if (wins.has(id)) { focus(id); return; }
-    const n = wins.size;
-    const el = document.createElement("div");
-    el.className = "win";
-    el.style.width = w + "px";
-    el.style.height = h + "px";
-    el.style.left = Math.min(OS_W - w - 6, 96 + n * 22) + "px";
-    el.style.top = (34 + n * 20) + "px";
-    el.innerHTML = `<div class="tb"><svg class="ti" viewBox="0 0 40 40"><use href="${icon}"/></svg><span class="tt">${title}</span><div class="x"></div></div><div class="wb">${body}</div>${status ? `<div class="ws">${status}</div>` : ""}`;
-    winsEl.appendChild(el);
-    const task = document.createElement("div");
-    task.className = "task";
-    task.innerHTML = `<svg viewBox="0 0 40 40"><use href="${icon}"/></svg><span>${title}</span>`;
-    tasksEl.appendChild(task);
-    wins.set(id, { el, task });
-
-    el.addEventListener("pointerdown", () => focus(id));
-    task.addEventListener("click", () => focus(id));
-    $(".x", el).addEventListener("click", e => { e.stopPropagation(); closeWin(id); });
-
-    const tb = $(".tb", el);
-    tb.addEventListener("pointerdown", e => {
-      if (e.target.closest(".x")) return;
-      const k = root.getBoundingClientRect().width / OS_W;
-      const sx = el.offsetLeft, sy = el.offsetTop, x0 = e.clientX, y0 = e.clientY;
-      tb.setPointerCapture(e.pointerId);
-      const mv = ev => {
-        el.style.left = Math.max(-w + 40, Math.min(OS_W - 40, sx + (ev.clientX - x0) / k)) + "px";
-        el.style.top = Math.max(0, Math.min(434 - 26 - 23, sy + (ev.clientY - y0) / k)) + "px";
-      };
-      const up = () => { tb.removeEventListener("pointermove", mv); tb.removeEventListener("pointerup", up); tb.removeEventListener("pointercancel", up); };
-      tb.addEventListener("pointermove", mv);
-      tb.addEventListener("pointerup", up);
-      tb.addEventListener("pointercancel", up);
-    });
-    focus(id);
-  }
-
-  function focus(id) {
-    wins.forEach((w, k) => {
-      const on = k === id;
-      w.el.classList.toggle("inactive", !on);
-      w.task.classList.toggle("active", on);
-      if (on) w.el.style.zIndex = ++zTop;
-    });
-  }
-  function closeWin(id) {
-    const w = wins.get(id);
-    if (!w) return;
-    w.el.remove(); w.task.remove();
-    wins.delete(id);
-  }
-  function closeAll() { [...wins.keys()].forEach(closeWin); }
-
-  const iris = $("#skyIris", root), pupil = $("#skyPupil", root);
-  window.addEventListener("pointermove", e => {
-    if (stage !== "desktop" || !root.classList.contains("live")) return;
-    const r = root.getBoundingClientRect();
-    const k = r.width / OS_W;
-    const x = (e.clientX - r.left) / k - 420, y = (e.clientY - r.top) / k - 112;
-    const d = Math.hypot(x, y) || 1, m = Math.min(1, d / 200);
-    const dx = x / d * 8 * m, dy = y / d * 6 * m;
-    iris.setAttribute("cx", 420 + dx); iris.setAttribute("cy", 112 + dy);
-    pupil.setAttribute("cx", 420 + dx * 1.15); pupil.setAttribute("cy", 112 + dy * 1.15);
-  });
-
-  function key(e) {
-    if (!root.classList.contains("live")) return false;
-    if (e.key === "Enter" && stage === "login" && pwReady) { signIn(); return true; }
-    if (e.key === "Escape" && startMenu.classList.contains("open")) { closeStart(); return true; }
-    return false;
-  }
-
-  return { boot, powerOff, restore, key, closeStart, hooks, get stage() { return stage; } };
-})();
-
-function save() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ on: powered, stage: OS.stage })); } catch (e) {}
-}
-
-function setPower(on, opts = {}) {
-  powered = on;
-  screenEl.classList.remove("on", "off", "instant");
-  void screenEl.offsetWidth;
-  screenEl.classList.add(on ? "on" : "off");
-  if (opts.instant) screenEl.classList.add("instant");
-  glow.classList.toggle("on", on);
-  leds.forEach(l => l.classList.toggle("on", on));
-  if (!opts.silent) {
-    audio.click();
-    if (on) setTimeout(() => audio.thunk(), 220);
-  }
-  audio.hum(on && !zoomed);
-  if (on) { opts.restore ? OS.restore(opts.restore) : OS.boot(); }
-  else OS.powerOff();
-  save();
-}
-
-OS.hooks.save = save;
-OS.hooks.shutdown = () => { zoomed ? zoomOut(() => setPower(false)) : setPower(false); };
-OS.hooks.launch = url => {
-  document.body.classList.add("wait");
-  setTimeout(() => blackout.classList.add("on"), 450);
-  try { sessionStorage.setItem("ds-return", "1"); } catch (e) {}
-  setTimeout(() => { location.href = url; }, 1250);
-};
-
-tower.addEventListener("click", () => {
-  if (window._lastDragMoved || zoomed || busy) return;
-  setPower(!powered);
-});
-screenEl.addEventListener("click", () => {
-  if (window._lastDragMoved || zoomed || busy) return;
-  if (!powered) { setPower(true); return; }
-  zoomIn();
-});
-
-function attach() {
-  const r = screenEl.getBoundingClientRect();
-  monitor.style.left = r.left + "px";
-  monitor.style.top = r.top + "px";
-  monitor.style.width = r.width + "px";
-  monitor.style.height = r.height + "px";
-  monitor.insertBefore(osEl, monitor.firstChild);
-  osEl.style.transform = `scale(${r.width / OS_W})`;
-  osEl.classList.add("live");
-  monitor.classList.add("show");
-}
-function detach() {
-  osEl.classList.remove("live");
-  crt.appendChild(osEl);
-  osEl.style.transform = `scale(${SCREEN_W * s / OS_W})`;
-  monitor.classList.remove("show");
-}
-
-function zoomIn(instant) {
-  if (zoomed || busy) return;
-  busy = true;
-  const t = ++zt;
-  if (instant) scene.style.transition = "none";
-  const r = screenEl.getBoundingClientRect();
-  const Z = Math.min(viewW * .94 / r.width, viewH * .92 / r.height);
-  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  scene.style.transform = `translate(${viewW / 2 - cx * Z}px, ${viewH / 2 - cy * Z}px) scale(${Z})`;
-  document.body.classList.add("zoomed");
-  zoomed = true;
-  audio.hum(false);
-  const finish = () => {
-    if (t !== zt) return;
-    attach();
-    busy = false;
-    if (instant) requestAnimationFrame(() => { scene.style.transition = ""; });
-  };
-  if (instant) { void scene.offsetWidth; finish(); }
-  else setTimeout(finish, 1150);
-}
-
-function zoomOut(cb) {
-  if (!zoomed || busy) return;
-  busy = true;
-  const t = ++zt;
-  OS.closeStart();
-  detach();
-  scene.style.transform = "";
-  document.body.classList.remove("zoomed");
-  setTimeout(() => {
-    if (t !== zt) return;
-    zoomed = false; busy = false;
-    if (powered) audio.hum(true);
-    if (cb) cb();
-  }, 1150);
-}
-$("#shade").addEventListener("click", () => zoomOut());
-window.addEventListener("keydown", e => {
-  if (OS.key(e)) return;
-  if (e.key === "Escape") zoomOut();
-});
-
-window.addEventListener("resize", () => {
-  const was = zoomed && !busy;
-  if (zoomed) {
-    zt++;
-    detach();
-    scene.style.transition = "none";
-    scene.style.transform = "";
-    document.body.classList.remove("zoomed");
-    zoomed = false; busy = false;
-  }
-  layout();
-  if (was) zoomIn(true);
-  else requestAnimationFrame(() => { scene.style.transition = ""; });
-});
-
-window.addEventListener("pointerdown", () => {
-  audio.ensure();
-  if (powered && !zoomed) audio.hum(true);
-}, { once: true, capture: true });
-
-window.addEventListener("pageshow", e => {
-  if (e.persisted) { blackout.classList.remove("on"); document.body.classList.remove("wait"); }
-});
-
-const imgs = [$("#roomImg"), $("#deskImg")];
-Promise.all(imgs.map(i => i.complete ? Promise.resolve() : new Promise(r => { i.onload = r; i.onerror = r; })))
-  .then(() => scene.classList.add("ready"));
-
-layout();
-cam = target = clampCam(START_X());
-render();
-
-let saved = {};
-try { saved = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) {}
-if (saved.on) setPower(true, { silent: true, instant: true, restore: saved.stage });
-
-let returning = false;
-try { returning = sessionStorage.getItem("ds-return") === "1"; sessionStorage.removeItem("ds-return"); } catch (e) {}
-if (returning && powered) zoomIn(true);
-
-requestAnimationFrame(tick);
-</script>
-</body>
-</html>
+    [320,
