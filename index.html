@@ -143,8 +143,33 @@
     font-size: 11px;
     pointer-events: none;
     cursor: default;
+    filter: brightness(.86) contrast(1.06) saturate(.88);
   }
   #os.live { pointer-events: auto; }
+  .crt .tube {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 101;
+    background:
+      radial-gradient(ellipse 58% 42% at 30% 20%, rgba(255,255,255,.09), transparent 70%),
+      radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,.35) 80%, rgba(0,0,0,.8) 100%),
+      linear-gradient(170deg, rgba(255,214,160,.05), transparent 40%);
+  }
+  .crt .roll {
+    position: absolute; left: 0; right: 0; height: 22%;
+    pointer-events: none;
+    z-index: 101;
+    background: linear-gradient(transparent, rgba(255,255,255,.035), transparent);
+    animation: rollbar 9s linear infinite;
+  }
+  @keyframes rollbar { from { top: -25%; } to { top: 105%; } }
+  .crt .mask {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 101;
+    opacity: .5;
+    background: repeating-linear-gradient(90deg, rgba(255,40,40,.05) 0 1px, rgba(40,255,40,.05) 1px 2px, rgba(40,40,255,.05) 2px 3px);
+  }
   .crt .scan {
     position: absolute; inset: 0;
     pointer-events: none;
@@ -160,14 +185,14 @@
 
   .post {
     background: #000;
-    padding: 18px 20px;
+    padding: 24px 30px;
     font-family: "Lucida Console", "Courier New", monospace;
     font-size: 12px;
     line-height: 1.5;
     color: #b9b9b9;
   }
   .post .pl { white-space: pre; }
-  .post .badge { position: absolute; right: 20px; top: 16px; width: 54px; opacity: .85; }
+  .post .badge { position: absolute; right: 30px; top: 16px; width: 54px; opacity: .85; }
 
   .splash { background: #000; }
   .splash .mid {
@@ -260,7 +285,7 @@
   .go:not(:disabled) { animation: nudge 1.6s ease-in-out infinite; }
   @keyframes nudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 0 3px rgba(255,255,255,.35); } }
   .pwr {
-    position: absolute; left: 18px; top: 18px;
+    position: absolute; left: 26px; top: 18px;
     width: 26px; height: 26px;
     border-radius: 5px;
     border: 1px solid #fff;
@@ -281,7 +306,7 @@
   .wall { position: absolute; inset: 0; }
   .wall svg { width: 100%; height: 100%; }
   .icons {
-    position: absolute; left: 6px; top: 8px;
+    position: absolute; left: 18px; top: 18px;
     display: flex; flex-direction: column; gap: 12px;
   }
   .icon {
@@ -368,7 +393,7 @@
   }
   .startbtn {
     height: 26px;
-    padding: 0 16px 0 7px;
+    padding: 0 16px 0 20px;
     display: flex; align-items: center; gap: 4px;
     border: none;
     border-radius: 0 11px 11px 0;
@@ -397,7 +422,7 @@
   .task span { overflow: hidden; text-overflow: ellipsis; }
   .task.active { background: #1d4fb6; box-shadow: inset 1px 1px 2px rgba(0,0,0,.4); }
   .tray {
-    padding: 0 11px;
+    padding: 0 22px 0 11px;
     display: flex; align-items: center;
     background: linear-gradient(#1aa0f0, #0f8de6 12%, #0c84df 88%, #0a72c8);
     border-left: 1px solid #0f3c8f;
@@ -406,7 +431,7 @@
   }
 
   .startmenu {
-    position: absolute; left: 0; bottom: 26px;
+    position: absolute; left: 10px; bottom: 26px;
     width: 236px;
     border-radius: 7px 7px 0 0;
     overflow: hidden;
@@ -453,7 +478,7 @@
   .smb:hover span { text-decoration: underline; }
 
   @media (prefers-reduced-motion: reduce) {
-    .lampglow { animation: none; }
+    .lampglow, .crt .roll { animation: none; }
   }
 </style>
 </head>
@@ -507,7 +532,7 @@
   </div>
 
   <div class="layer" id="desk">
-    <div id="screen" data-box="1668,543,235,177">
+    <div id="screen" data-box="1664,540,242,182">
       <div class="crt">
         <div id="os">
 
@@ -621,12 +646,15 @@
 
         </div>
         <div class="scan"></div>
+        <div class="mask"></div>
+        <div class="roll"></div>
+        <div class="tube"></div>
       </div>
       <div class="glass"></div>
     </div>
     <img src="desk2.png" alt="" id="deskImg" style="position:relative">
     <div id="screenGlow" data-box="1590,470,400,330"></div>
-    <div class="hot" id="screenHit" data-box="1668,543,235,177"></div>
+    <div class="hot" id="screenHit" data-box="1664,540,242,182"></div>
     <div class="hot" id="tower" data-box="1945,522,185,288"></div>
     <div class="led" id="ledMon" data-box="1868,740,9,9"></div>
     <div class="led" id="ledTower" data-box="2091,694,9,9"></div>
@@ -652,7 +680,8 @@ const leds = [$("#ledMon"), $("#ledTower")];
 const blackout = $("#blackout"), screenHit = $("#screenHit");
 const MAX_MAG = 2.8;
 const SCREEN_BOX = screenEl.dataset.box.split(",").map(Number);
-const OS_BOX = [1681, 556, 208, 154];
+const QUAD = { tl: [1670, 544], tr: [1902, 542.5], bl: [1667, 714.5] };
+const OS_H = 415;
 
 let s = 1, viewW = 0, viewH = 0, maxCam = 0, topOff = 0;
 let cam = 0, target = 0;
@@ -675,9 +704,9 @@ function layout() {
     el.style.width = w * s + "px";
     el.style.height = h * s + "px";
   });
-  osEl.style.left = (OS_BOX[0] - SCREEN_BOX[0]) * s + "px";
-  osEl.style.top = (OS_BOX[1] - SCREEN_BOX[1]) * s + "px";
-  osEl.style.transform = `scale(${OS_BOX[2] * s / OS_W})`;
+  const P = k => [(QUAD[k][0] - SCREEN_BOX[0]) * s, (QUAD[k][1] - SCREEN_BOX[1]) * s];
+  const [x0, y0] = P("tl"), [x1, y1] = P("tr"), [x2, y2] = P("bl");
+  osEl.style.transform = `matrix(${(x1 - x0) / OS_W},${(y1 - y0) / OS_W},${(x2 - x0) / OS_H},${(y2 - y0) / OS_H},${x0},${y0})`;
   target = clampCam(target);
   cam = clampCam(cam);
   render();
