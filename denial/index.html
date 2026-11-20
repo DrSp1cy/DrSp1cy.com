@@ -19,20 +19,7 @@
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  body.playing { cursor: none; }
-
-  #wake {
-    position: fixed; left: 50%; top: 50%;
-    width: 6px; height: 6px;
-    margin: -3px 0 0 -3px;
-    border-radius: 50%;
-    background: #fff;
-    opacity: 0;
-    pointer-events: none;
-  }
-  body.blocked #wake { animation: breathe 2.6s ease-in-out infinite; }
-  body.blocked { cursor: pointer; }
-  @keyframes breathe { 0%, 100% { opacity: .04; } 50% { opacity: .22; } }
+  body { cursor: none; }
 
   #quote {
     position: fixed; inset: 0;
@@ -193,7 +180,6 @@
 </head>
 <body>
 
-<div id="wake"></div>
 <div id="quote">
   <div id="line"></div>
   <div id="who">Thomas Jefferson</div>
@@ -236,23 +222,29 @@ const frame = document.getElementById("frame");
 const flash = document.getElementById("flash");
 const truth = document.getElementById("truth");
 
-let started = false, revealed = false, revealT = 0;
+let revealed = false, revealT = 0, audioOn = false, trying = false;
+const t0 = performance.now();
 
 if (truth.decode) truth.decode().catch(() => {});
 
-function start() {
-  if (started) return;
-  music.volume = 1;
-  const p = music.play();
-  if (p && p.then) {
-    p.then(() => {
-      started = true;
-      body.classList.remove("blocked");
-      body.classList.add("playing");
-    }).catch(() => body.classList.add("blocked"));
-  } else {
-    started = true;
+const elapsed = () => (performance.now() - t0) / 1000;
+const clock = () => audioOn ? music.currentTime : elapsed();
+
+function tryAudio() {
+  if (audioOn || trying) return;
+  trying = true;
+  const at = elapsed();
+  if (at > 0.3 && music.duration && at < music.duration) {
+    try { music.currentTime = at; } catch (e) {}
   }
+  const p = music.play();
+  const ok = () => {
+    trying = false;
+    audioOn = Math.abs(music.currentTime - elapsed()) < 1.5;
+    if (!audioOn) { music.pause(); try { music.currentTime = elapsed(); } catch (e) {} music.play().then(() => { audioOn = Math.abs(music.currentTime - elapsed()) < 1.5; }, () => {}); }
+  };
+  const no = () => { trying = false; };
+  if (p && p.then) p.then(ok, no); else ok();
 }
 
 function reveal() {
@@ -266,8 +258,8 @@ function reveal() {
 }
 
 function loop(now) {
-  const mt = music.currentTime;
-  if (started && !revealed) {
+  const mt = clock();
+  if (!revealed) {
     const n = Math.max(0, Math.min(chars.length, Math.floor((mt - TYPE_START) / (TYPE_END - TYPE_START) * chars.length) + 1));
     caret.classList.toggle("blink", mt >= TYPE_START - 0.4 && mt < WHO_AT + 1);
     while (shown < n) chars[shown++].classList.add("on");
@@ -290,9 +282,10 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-window.addEventListener("pointerdown", start);
-window.addEventListener("keydown", start);
-start();
+["pointerdown", "keydown", "touchstart", "wheel"].forEach(ev =>
+  window.addEventListener(ev, tryAudio, { passive: true }));
+music.addEventListener("canplay", tryAudio, { once: true });
+tryAudio();
 requestAnimationFrame(loop);
 </script>
 </body>
