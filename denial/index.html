@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>denial</title>
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,500&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10' fill='%23000'/></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.playing { cursor: none; }
+
+  #wake {
+    position: fixed; left: 50%; top: 50%;
+    width: 6px; height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+  }
+  body.blocked #wake { animation: breathe 2.6s ease-in-out infinite; }
+  body.blocked { cursor: pointer; }
+  @keyframes breathe { 0%, 100% { opacity: .04; } 50% { opacity: .22; } }
+
+  #quote {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1.6em;
+    padding: 0 8vw;
+    text-align: center;
+    font-family: "Cormorant Garamond", "Garamond", "Georgia", serif;
+    font-style: italic;
+    color: #ece6da;
+    pointer-events: none;
+    transition: opacity 1.2s ease, filter 1.2s ease;
+  }
+  #quote.gone { opacity: 0; filter: blur(6px); }
+  #line {
+    font-weight: 300;
+    font-size: clamp(26px, 4.4vw, 64px);
+    line-height: 1.25;
+    letter-spacing: .01em;
+    text-shadow: 0 0 24px rgba(255,235,200,.18);
+  }
+  #line span {
+    opacity: 0;
+    filter: blur(5px);
+    display: inline-block;
+    transform: translateY(.12em);
+    transition: opacity .7s ease, filter .7s ease, transform .7s ease;
+    white-space: pre;
+  }
+  #line span.on { opacity: 1; filter: blur(0); transform: none; }
+  #line .caret {
+    display: inline-block;
+    width: 1px; height: .9em;
+    margin-left: .08em;
+    vertical-align: -.08em;
+    background: #ece6da;
+    opacity: 0;
+  }
+  #line .caret.blink { animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 0%, 100% { opacity: .7; } 50% { opacity: 0; } }
+  #who {
+    font-weight: 500;
+    font-size: clamp(14px, 1.5vw, 22px);
+    letter-spacing: .32em;
+    text-transform: uppercase;
+    font-style: normal;
+    color: #b9ae9b;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 2s ease, transform 2s ease;
+  }
+  #who.on { opacity: .85; transform: none; }
+  #who::before, #who::after {
+    content: "";
+    display: inline-block;
+    width: 2.2em; height: 1px;
+    margin: 0 .9em;
+    vertical-align: .3em;
+    background: currentColor;
+    opacity: .5;
+  }
+
+  #stage {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    perspective: 1400px;
+    opacity: 0;
+  }
+  body.revealed #stage { opacity: 1; }
+
+  #spot {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 55% 60% at 50% 48%, rgba(255,245,230,.10), transparent 70%);
+    opacity: 0;
+    transition: opacity 4s ease;
+    pointer-events: none;
+  }
+  body.revealed #spot { opacity: 1; }
+
+  #frame {
+    position: relative;
+    height: min(82vh, 82vw * 1.328);
+    aspect-ratio: 1088 / 1445;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  #frame img {
+    display: block;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 30px 90px rgba(0,0,0,.9), 0 0 60px rgba(255,240,220,.08);
+    animation: develop 3.2s ease-out both paused;
+    -webkit-user-drag: none;
+  }
+  body.revealed #frame img { animation-play-state: running; }
+  @keyframes develop {
+    0%   { filter: brightness(4) contrast(.6) blur(6px); }
+    35%  { filter: brightness(1.6) contrast(.9) blur(1px); }
+    100% { filter: brightness(1) contrast(1) blur(0); }
+  }
+  #sheen {
+    position: absolute; inset: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  #sheen::after {
+    content: "";
+    position: absolute; top: -20%; bottom: -20%;
+    width: 40%;
+    left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.13), transparent);
+    transform: skewX(-12deg);
+    animation: sheen 9s ease-in-out 3s infinite;
+  }
+  @keyframes sheen { 0% { left: -60%; } 30%, 100% { left: 130%; } }
+
+  #flash {
+    position: fixed; inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #flash.go { animation: flash 2.2s cubic-bezier(.1, .7, .3, 1) forwards; }
+  @keyframes flash {
+    0%   { opacity: 0; }
+    3%   { opacity: 1; }
+    14%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  body.shake #stage { animation: shake .45s linear; }
+  @keyframes shake {
+    0%, 100% { translate: 0 0; }
+    20% { translate: -10px 6px; }
+    40% { translate: 8px -7px; }
+    60% { translate: -6px -4px; }
+    80% { translate: 4px 5px; }
+  }
+
+  .vignette {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.75) 100%);
+  }
+  .grain {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    opacity: .06;
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #sheen::after { animation: none; }
+    body.shake #stage { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="wake"></div>
+<div id="quote">
+  <div id="line"></div>
+  <div id="who">Thomas Jefferson</div>
+</div>
+<div id="spot"></div>
+<div id="stage">
+  <div id="frame">
+    <img src="truth.png" alt="" id="truth">
+    <div id="sheen"></div>
+  </div>
+</div>
+<div class="vignette"></div>
+<div class="grain"></div>
+<div id="flash"></div>
+
+<audio id="music" src="piano.mp3" preload="auto"></audio>
+
+<script>
+const FLASH_AT = 11.85;
+const QUOTE = "\u201CDenial is a river in Egypt.\u201D";
+const TYPE_START = 1.2, TYPE_END = 7.2, WHO_AT = 8.2, QUOTE_OUT = 10.6;
+
+const quoteEl = document.getElementById("quote");
+const line = document.getElementById("line");
+const who = document.getElementById("who");
+const chars = [...QUOTE].map(ch => {
+  const s = document.createElement("span");
+  s.textContent = ch;
+  line.appendChild(s);
+  return s;
+});
+const caret = document.createElement("i");
+caret.className = "caret";
+line.appendChild(caret);
+let shown = 0;
+
+const body = document.body;
+const music = document.getElementById("music");
+const frame = document.getElementById("frame");
+const flash = document.getElementById("flash");
+const truth = document.getElementById("truth");
+
+let started = false, revealed = false, revealT = 0;
+
+if (truth.decode) truth.decode().catch(() => {});
+
+function start() {
+  if (started) return;
+  music.volume = 1;
+  const p = music.play();
+  if (p && p.then) {
+    p.then(() => {
+      started = true;
+      body.classList.remove("blocked");
+      body.classList.add("playing");
+    }).catch(() => body.classList.add("blocked"));
+  } else {
+    started = true;
+  }
+}
+
+function reveal() {
+  revealed = true;
+  revealT = performance.now();
+  flash.classList.add("go");
+  setTimeout(() => {
+    body.classList.add("revealed", "shake");
+    setTimeout(() => body.classList.remove("shake"), 500);
+  }, 60);
+}
+
+function loop(now) {
+  const mt = music.currentTime;
+  if (started && !revealed) {
+    const n = Math.max(0, Math.min(chars.length, Math.floor((mt - TYPE_START) / (TYPE_END - TYPE_START) * chars.length) + 1));
+    caret.classList.toggle("blink", mt >= TYPE_START - 0.4 && mt < WHO_AT + 1);
+    while (shown < n) chars[shown++].classList.add("on");
+    who.classList.toggle("on", mt >= WHO_AT);
+    quoteEl.classList.toggle("gone", mt >= QUOTE_OUT);
+    if (mt >= FLASH_AT) reveal();
+  }
+  if (revealed) {
+    const t = (now - revealT) / 1000;
+    const ease = Math.min(1, t / 4);
+    const rotY = 9 * Math.sin(t * 0.23) * ease;
+    const rotX = 4 * Math.sin(t * 0.17 + 1.2) * ease;
+    const rotZ = 1.2 * Math.sin(t * 0.13 + 0.4) * ease;
+    const tx = 1.8 * Math.sin(t * 0.11) * ease;
+    const ty = 1.2 * Math.sin(t * 0.15 + 2) * ease;
+    const sc = 0.94 + 0.06 * (1 - Math.exp(-t / 2)) + 0.03 * Math.sin(t * 0.09);
+    frame.style.transform =
+      `translate(${tx}vw, ${ty}vh) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg) scale(${sc})`;
+  }
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("pointerdown", start);
+window.addEventListener("keydown", start);
+start();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
